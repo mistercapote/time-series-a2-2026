@@ -1,88 +1,97 @@
 import pandas as pd
 
-def carregar_dados(caminho:str) -> pd.DataFrame:
-  """
-  Carrega os dados no caminho dado.
 
-  Args:
-      caminho (str): Caminho dos dados
+def carregar_dados(caminho: str) -> pd.DataFrame:
+    """
+    Carrega os dados no caminho dado.
 
-  Returns:
-      pd.DataFrame: Dados
-  """
-  return pd.read_csv(caminho)
+    Args:
+        caminho (str): Caminho dos dados
+
+    Returns:
+        pd.DataFrame: Dados
+    """
+    return pd.read_csv(caminho)
+
 
 def mudar_tipo_coluna_data(df: pd.DataFrame) -> pd.DataFrame:
-  """
-  Altera a coluna data para o tipo datetime (melhor para operações de data).
+    """
+    Altera a coluna data para o tipo datetime (melhor para operações de data).
 
-  Args:
-      df (pd.DataFrame): Dataframe original
+    Args:
+        df (pd.DataFrame): Dataframe original
 
-  Returns:
-      pd.DataFrame: Dataframe modificado
-  """
-  df_modificado = df.copy()
-  df_modificado['date'] = pd.to_datetime(df_modificado['date'])
+    Returns:
+        pd.DataFrame: Dataframe modificado
+    """
+    df_modificado = df.copy()
+    df_modificado["date"] = pd.to_datetime(df_modificado["date"])
 
-  return df_modificado
+    return df_modificado
+
 
 def ordenar_data(df: pd.DataFrame) -> pd.DataFrame:
-  """
-  Ordena as linhas de uma tabela pela coluna data (em ordem crescente).
+    """
+    Ordena as linhas de uma tabela pela coluna data (em ordem crescente).
 
-  Args:
-      df (pd.DataFrame): Dataframe original
+    Args:
+        df (pd.DataFrame): Dataframe original
 
-  Returns:
-      pd.DataFrame: Dataframe ordenado
-  """
-  df_ordenado = df.copy()
-  df_ordenado = df_ordenado.sort_values('date')
+    Returns:
+        pd.DataFrame: Dataframe ordenado
+    """
+    df_ordenado = df.copy()
+    df_ordenado = df_ordenado.sort_values("date")
 
-  return df_ordenado
+    return df_ordenado
 
-def filtrar_intervalo_data(df: pd.DataFrame, data_inicio: str = None, data_fim: str = None) -> pd.DataFrame:
-  """
-  Filtra as entradas de uma tabela para estarem apenas entre duas datas selecionadas.
-  Se data_inicio ou data_fim não forem fornecidos, o limite correspondente não é aplicado.
 
-  Args:
-      df (pd.DataFrame): Dataframe original
-      data_inicio (str): Data de início. Padrão é None
-      data_fim (str): Data de fim. Padrão é None
+def filtrar_intervalo_data(
+    df: pd.DataFrame, data_inicio: str = None, data_fim: str = None
+) -> pd.DataFrame:
+    """
+    Filtra as entradas de uma tabela para estarem apenas entre duas datas selecionadas.
+    Se data_inicio ou data_fim não forem fornecidos, o limite correspondente não é aplicado.
 
-  Returns:
-      pd.DataFrame: Dataframe no intervalo selecionado
-  """
-  df_verificado = df.copy()
+    Args:
+        df (pd.DataFrame): Dataframe original
+        data_inicio (str): Data de início. Padrão é None
+        data_fim (str): Data de fim. Padrão é None
 
-  # Se data_inicio foi preenchida, filtra do início em diante
-  if data_inicio is not None:
-      df_verificado = df_verificado[df_verificado['date'] >= data_inicio]
-      
-  # Se data_fim foi preenchida, filtra até a data de fim
-  if data_fim is not None:
-      df_verificado = df_verificado[df_verificado['date'] <= data_fim]
+    Returns:
+        pd.DataFrame: Dataframe no intervalo selecionado
+    """
+    df_verificado = df.copy()
 
-  return df_verificado
+    # Se data_inicio foi preenchida, filtra do início em diante
+    if data_inicio is not None:
+        df_verificado = df_verificado[df_verificado["date"] >= data_inicio]
 
-def carregar_dados_e_tratar_data(caminho: str, data_inicio: str = None, data_fim: str = None) -> pd.DataFrame:
-  """
-  Faz o pipeline completo de carregamento dos dados, converter data para datetime, 
-  ordenar pela data e colocar as linhas dentro de um intervalo especifico.
+    # Se data_fim foi preenchida, filtra até a data de fim
+    if data_fim is not None:
+        df_verificado = df_verificado[df_verificado["date"] <= data_fim]
 
-  Args:
-      caminho (str): Caminho dos dados
-      data_inicio (str): Data de início. Padrão é None.
-      data_fim (str): Data de fim. Padrão é None.
+    return df_verificado
 
-  Returns:
-      pd.Dataframe: Dados carregados e tratados
-  """
-  df = carregar_dados(caminho)
-  df = mudar_tipo_coluna_data(df)
-  df = ordenar_data(df)
-  df = filtrar_intervalo_data(df, data_inicio, data_fim)
 
-  return df
+def carregar_dados_e_tratar_data(
+    caminho: str, data_inicio: str = None, data_fim: str = None
+) -> pd.DataFrame:
+    """
+    Faz o pipeline completo de carregamento dos dados, converter data para datetime,
+    ordenar pela data e colocar as linhas dentro de um intervalo especifico.
+
+    Args:
+        caminho (str): Caminho dos dados
+        data_inicio (str): Data de início. Padrão é None.
+        data_fim (str): Data de fim. Padrão é None.
+
+    Returns:
+        pd.Dataframe: Dados carregados e tratados
+    """
+    df = carregar_dados(caminho)
+    df = mudar_tipo_coluna_data(df)
+    df = ordenar_data(df)
+    df = filtrar_intervalo_data(df, data_inicio, data_fim)
+
+    return df
