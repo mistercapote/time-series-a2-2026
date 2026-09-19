@@ -1,19 +1,6 @@
 import pandas as pd
 
 
-def carregar_dados(caminho: str) -> pd.DataFrame:
-    """
-    Carrega os dados no caminho dado.
-
-    Args:
-        caminho (str): Caminho dos dados
-
-    Returns:
-        pd.DataFrame: Dados
-    """
-    return pd.read_csv(caminho)
-
-
 def mudar_tipo_coluna_data(df: pd.DataFrame) -> pd.DataFrame:
     """
     Altera a coluna data para o tipo datetime (melhor para operações de data).
@@ -74,7 +61,7 @@ def filtrar_intervalo_data(
     return df_verificado["date"], df_verificado["value"]
 
 
-def carregar_dados_e_tratar_data(
+def carregar_dados(
     caminho: str, data_inicio: str = None, data_fim: str = None
 ) -> pd.DataFrame:
     """
@@ -89,7 +76,7 @@ def carregar_dados_e_tratar_data(
     Returns:
         pd.Dataframe: Dados carregados e tratados
     """
-    df = carregar_dados(caminho)
+    df = pd.read_csv(caminho)
     df = mudar_tipo_coluna_data(df)
     df = ordenar_data(df)
 
