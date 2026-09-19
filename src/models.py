@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 
 
-def mean(serie: pd.Series, n: int = 7):
+def mean(serie: pd.Series, n: int = 28):
     """
     Calcula a previsão usando o método da média.
 
@@ -13,7 +13,11 @@ def mean(serie: pd.Series, n: int = 7):
     return np.full(shape=n, fill_value=serie.mean())
 
 
-def naive_sazonal(serie: pd.Series, m: int = 7, n: int = 7):
+def naive():
+    pass
+
+
+def naive_sazonal(serie: pd.Series, m: int = 7, n: int = 28):
     """
     Calcula a previsão usando o método Naive Sazonal.
 
@@ -31,7 +35,7 @@ def naive_sazonal(serie: pd.Series, m: int = 7, n: int = 7):
     return np.array(Y_pred)
 
 
-def drift(serie: pd.Series, n: int = 7):
+def drift(serie: pd.Series, n: int = 28):
     """
     Calcula a previsão usando o método Naive Sazonal.
 

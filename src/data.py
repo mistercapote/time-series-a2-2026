@@ -100,3 +100,20 @@ def carregar_dados_e_tratar_data(
         df = df[df["date"] <= pd.Timestamp(data_fim)]
 
     return df
+
+
+def construir_full_data(
+    train_data:pd.DataFrame, validation_data:pd.DataFrame
+)-> pd.DataFrame:
+    """
+    Concatena o conjunto de treino e o conjunto de validação num único DataFrame
+    
+    Args:
+            train_data (str): DataFrame de treino.
+            validation_data (str): DataFrame de validação.
+    
+    Returns:
+        pd.Dataframe: Dados concatenados
+    """
+    return pd.concat([train_data, validation_data], axis=0)
+

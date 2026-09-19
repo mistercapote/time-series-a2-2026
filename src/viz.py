@@ -44,11 +44,9 @@ def grafico_temporal(
     plt.show()
     
 def grafico_temporal_com_previsao(
-    series_treino: pd.Series,
-    datas_treino: pd.Series,
-    series_validacao: pd.Series,
-    datas_validacao: pd.Series,
-    previsao: pd.Series,
+    series_completo: pd.Series,
+    datas_completo: pd.Series,
+    previsoes: pd.Series,
     datas_previsao: pd.Series,
     titulo: str = None,
     data_inicio: str = None,
@@ -60,8 +58,8 @@ def grafico_temporal_com_previsao(
     É possível definir o intervalo de tempo e altura máxima do gráfico para controlar a visualização.
 
     Args:
-        series_treino (pd.Series): Série temporal do treino a ser plotada.
-        datas_treino (pd.Series): Séries de datas correspondentes ao treino.
+        series_completo (pd.Series): Série temporal do completo a ser plotada.
+        datas_completo (pd.Series): Séries de datas correspondentes ao completo.
         series_validacao (pd.Series): Série temporal da validação a ser plotada.
         datas_validacao (pd.Series): Séries de datas correspondentes à validação.
         previsao (pd.Series): Série temporal da previsão.
@@ -73,19 +71,19 @@ def grafico_temporal_com_previsao(
     """
     # FILTRO
 
-    datas_filtradas, serie_filtrada = filtrar_intervalo_data(series_treino, datas_treino, data_inicio, data_fim)
+    datas_filtradas, serie_filtrada = filtrar_intervalo_data(series_completo, datas_completo, data_inicio, data_fim)
 
     # PLOT
 
     fig, ax = plt.subplots(figsize=(12, 4))
 
     ax.plot(datas_filtradas, serie_filtrada, label=r"Y_t", color="blue")
-    ax.plot(datas_validacao, series_validacao, color="blue")
-    ax.plot(datas_previsao, previsao, label="Previsão", color="orange", linestyle="--")
+    for label, previsao in previsoes.items():
+        ax.plot(datas_previsao, previsao, label=f"{label}")
     
     # linha vertical para separar treino e validação
-    if len(datas_validacao) > 0:
-        ax.axvline(x=datas_validacao.iloc[0], color="gray", alpha=0.5, linestyle="--", label="Início da Validação")
+    if len(datas_previsao) > 0:
+        ax.axvline(x=datas_previsao.iloc[0], color="gray", alpha=0.5, linestyle="--", label="Início da Validação")
 
     if y_max is not None:
         ax.set_ylim(0, y_max)
@@ -93,7 +91,7 @@ def grafico_temporal_com_previsao(
     if titulo is not None:
         ax.set_title(titulo)
 
-    ax.legend()
+    ax.legend(ncols=5,loc="upper center")
     plt.show()
 
 
