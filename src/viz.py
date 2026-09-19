@@ -6,8 +6,8 @@ from src.data import filtrar_intervalo_data
 
 
 def grafico_temporal(
-    df: pd.DataFrame,
-    coluna: str,
+    serie: pd.Series,
+    datas: pd.Series,
     titulo: str = None,
     data_inicio: str = None,
     data_fim: str = None,
@@ -18,8 +18,8 @@ def grafico_temporal(
     É possível definir o intervalo de tempo e altura máxima do gráfico para controlar a visualização.
 
     Args:
-        df (pd.DataFrame): Dataframe
-        coluna (str): Coluna
+        serie (pd.Series): Série temporal a ser plotada.
+        datas (pd.Series): Séries de datas correspondentes.
         titulo (str, optional): Título do gráfico. Defaults to None.
         data_inicio (str, optional): Data de início da visualização. Defaults to None.
         data_fim (str, optional): Data de fim da visualização. Defaults to None.
@@ -27,13 +27,13 @@ def grafico_temporal(
     """
     # FILTRO
 
-    df_filtrado = filtrar_intervalo_data(df, data_inicio, data_fim)
+    datas_filtradas, serie_filtrada = filtrar_intervalo_data(serie, datas, data_inicio, data_fim)
 
     # PLOT
 
     fig, ax = plt.subplots(figsize=(12, 4))
 
-    ax.plot(df_filtrado["date"], df_filtrado[coluna])
+    ax.plot(datas_filtradas, serie_filtrada)
 
     if y_max is not None:
         ax.set_ylim(0, y_max)
@@ -42,11 +42,64 @@ def grafico_temporal(
         ax.set_title(titulo)
 
     plt.show()
+    
+def grafico_temporal_com_previsao(
+    series_treino: pd.Series,
+    datas_treino: pd.Series,
+    series_validacao: pd.Series,
+    datas_validacao: pd.Series,
+    previsao: pd.Series,
+    datas_previsao: pd.Series,
+    titulo: str = None,
+    data_inicio: str = None,
+    data_fim: str = None,
+    y_max: int | float = None,
+):
+    """
+    Plota o gráfico de uma coluna do dataframe ao longo do tempo, incluindo a previsão.
+    É possível definir o intervalo de tempo e altura máxima do gráfico para controlar a visualização.
+
+    Args:
+        series_treino (pd.Series): Série temporal do treino a ser plotada.
+        datas_treino (pd.Series): Séries de datas correspondentes ao treino.
+        series_validacao (pd.Series): Série temporal da validação a ser plotada.
+        datas_validacao (pd.Series): Séries de datas correspondentes à validação.
+        previsao (pd.Series): Série temporal da previsão.
+        datas_previsao (pd.Series): Séries de datas correspondentes à previsão.
+        titulo (str, optional): Título do gráfico. Defaults to None.
+        data_inicio (str, optional): Data de início da visualização. Defaults to None.
+        data_fim (str, optional): Data de fim da visualização. Defaults to None.
+        y_max (int | float, optional): Altura máxima do gráfico. Defaults to None.
+    """
+    # FILTRO
+
+    datas_filtradas, serie_filtrada = filtrar_intervalo_data(series_treino, datas_treino, data_inicio, data_fim)
+
+    # PLOT
+
+    fig, ax = plt.subplots(figsize=(12, 4))
+
+    ax.plot(datas_filtradas, serie_filtrada, label=r"Y_t", color="blue")
+    ax.plot(datas_validacao, series_validacao, color="blue")
+    ax.plot(datas_previsao, previsao, label="Previsão", color="orange", linestyle="--")
+    
+    # linha vertical para separar treino e validação
+    if len(datas_validacao) > 0:
+        ax.axvline(x=datas_validacao.iloc[0], color="gray", alpha=0.5, linestyle="--", label="Início da Validação")
+
+    if y_max is not None:
+        ax.set_ylim(0, y_max)
+
+    if titulo is not None:
+        ax.set_title(titulo)
+
+    ax.legend()
+    plt.show()
 
 
 def grafico_ACF(
-    df: pd.DataFrame,
-    coluna: str,
+    serie: pd.Series,
+    datas: pd.Series,
     titulo: str = None,
     data_inicio: str = None,
     data_fim: str = None,
@@ -56,8 +109,8 @@ def grafico_ACF(
     Plota o gráfico de autocorrelação (ACF) de uma coluna do dataframe.
 
     Args:
-        df (pd.DataFrame): Dataframe
-        coluna (str): Coluna
+        serie (pd.Series): Série temporal
+        datas (pd.Series): Datas correspondentes à série
         titulo (str, optional): Título do gráfico. Defaults to None.
         data_inicio (str, optional): Data de início da visualização. Defaults to None.
         data_fim (str, optional): Data de fim da visualização. Defaults to None.
@@ -67,10 +120,10 @@ def grafico_ACF(
         None
     """
     # FILTRO
-    df_filtrado = filtrar_intervalo_data(df, data_inicio, data_fim)
+    datas_filtradas, serie_filtrada = filtrar_intervalo_data(serie, datas, data_inicio, data_fim)
 
     # CÁLCULO DA ACF
-    y = np.array(df_filtrado[coluna].dropna())
+    y = np.array(serie_filtrada.dropna())
     T = len(y)
 
     nlags = min(nlags, T - 1)
@@ -111,8 +164,8 @@ def grafico_ACF(
 
 
 def grafico_PACF(
-    df: pd.DataFrame,
-    coluna: str,
+    serie: pd.Series,
+    datas: pd.Series,
     titulo: str = None,
     data_inicio: str = None,
     data_fim: str = None,
@@ -124,21 +177,21 @@ def grafico_PACF(
     Usa o algoritmo de Durbin-Levinson para calcular a PACF.
 
     Args:
-        df (pd.DataFrame): Dataframe
-        coluna (str): Coluna
-        titulo (str, optional): Título do gráfico. Defaults to None.
-        data_inicio (str, optional): Data de início da visualização. Defaults to None.
-        data_fim (str, optional): Data de fim da visualização. Defaults to None.
-        nlags (int, optional): Número de lags a serem calculados. Defaults to 30.
+        serie (pd.Series): Série temporal
+        datas (pd.Series): Datas correspondentes à série
+        titulo (str, optional): Título do gráfico. Defaults to None.
+        data_inicio (str, optional): Data de início da visualização. Defaults to None.
+        data_fim (str, optional): Data de fim da visualização. Defaults to None.
+        nlags (int, optional): Número de lags a serem calculados. Defaults to 30.
 
     Returns:
         None
     """
     # FILTRO
-    df_filtrado = filtrar_intervalo_data(df, data_inicio, data_fim)
+    datas_filtradas, serie_filtrada = filtrar_intervalo_data(serie, datas, data_inicio, data_fim)
 
-    # CÁLCULO DA PACF
-    y = np.array(df_filtrado[coluna].dropna())
+    # CÁLCULO DA PACF
+    y = np.array(serie_filtrada.dropna())
     T = len(y)
 
     nlags = min(nlags, T - 1)
@@ -198,7 +251,7 @@ def grafico_PACF(
         alpha=0.2,
     )
 
-    ax.set_title(titulo if titulo else f"Autocorrelação Parcial (PACF) - {coluna}")
+    ax.set_title(titulo)
     ax.set_xlabel("Lag (h)")
     ax.set_ylabel(r"$\hat{\alpha}(h)$")
     ax.set_ylim(-1.1, 1.1)

@@ -47,7 +47,7 @@ def ordenar_data(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def filtrar_intervalo_data(
-    df: pd.DataFrame, data_inicio: str = None, data_fim: str = None
+    serie: pd.Series, datas: pd.Series, data_inicio: str = None, data_fim: str = None
 ) -> pd.DataFrame:
     """
     Filtra as entradas de uma tabela para estarem apenas entre duas datas selecionadas.
@@ -61,7 +61,7 @@ def filtrar_intervalo_data(
     Returns:
         pd.DataFrame: Dataframe no intervalo selecionado
     """
-    df_verificado = df.copy()
+    df_verificado = pd.DataFrame({"date": datas, "value": serie}).copy()
 
     # Se data_inicio foi preenchida, filtra do início em diante
     if data_inicio is not None:
@@ -71,7 +71,7 @@ def filtrar_intervalo_data(
     if data_fim is not None:
         df_verificado = df_verificado[df_verificado["date"] <= data_fim]
 
-    return df_verificado
+    return df_verificado["date"], df_verificado["value"]
 
 
 def carregar_dados_e_tratar_data(
@@ -92,6 +92,11 @@ def carregar_dados_e_tratar_data(
     df = carregar_dados(caminho)
     df = mudar_tipo_coluna_data(df)
     df = ordenar_data(df)
-    df = filtrar_intervalo_data(df, data_inicio, data_fim)
+
+    if data_inicio is not None:
+        df = df[df["date"] >= pd.Timestamp(data_inicio)]
+
+    if data_fim is not None:
+        df = df[df["date"] <= pd.Timestamp(data_fim)]
 
     return df
