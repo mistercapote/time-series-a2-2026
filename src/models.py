@@ -13,8 +13,19 @@ def mean(serie: pd.Series, n: int = 28):
     return np.full(shape=n, fill_value=serie.mean())
 
 
-def naive():
-    pass
+def naive(serie: pd.Series, n: int = 28) -> np.ndarray:
+    """
+    Calcula a previsão usando o método naive.
+
+    Args:
+        serie (pd.Series): Série temporal com os dados.
+        n (int, optional): Número de períodos futuros a serem previstos. Defaults to 28.
+
+    Returns:
+        np.ndarray: Previsões para os períodos futuros.
+    """
+    last = serie.iloc[-1]
+    return last * np.ones(n)
 
 
 def naive_sazonal(serie: pd.Series, m: int = 7, n: int = 28):
