@@ -2,6 +2,23 @@ import numpy as np
 import pandas as pd
 
 
+def mae_in_sample_sazonal(serie_train: pd.Series | np.ndarray, m: int = 7) -> float:
+    """Calcula o MAE in-sample do modelo Naive Sazonal.
+
+    Para t >= m, a previsão in-sample é y_pred_t = y_{t-m}.
+
+    Args:
+        serie_train (pd.Series | np.ndarray): Série temporal de treino.
+        m (int): Período da sazonalidade. Defaults to 7.
+
+    Returns:
+        float: Valor do MAE in-sample do naive sazonal.
+    """
+    y = np.asarray(serie_train)
+    erros = np.abs(y[m:] - y[:-m])
+    return float(np.mean(erros))
+
+
 def mae(y_true: np.ndarray | pd.Series, y_pred: np.ndarray | pd.Series) -> float:
     """Calcula o Erro Médio Absoluto (Mean Absolute Error - MAE).
 
@@ -54,25 +71,8 @@ def mase(
         float: Valor do MASE.
     """
     y_tr = np.asarray(y_train)
-    # Erro médio absoluto do naive sazonal in-sample: |y_t - y_{t-m}|
-    mae_in_sample_seasonal = np.mean(np.abs(y_tr[m:] - y_tr[:-m]))
-
+    mae_iss = mae_in_sample_sazonal(y_tr, m)
     mae_val = mae(y_true_val, y_pred_val)
-    return float(mae_val / mae_in_sample_seasonal)
+    return float(mae_val / mae_iss)
 
 
-def mae_in_sample_sazonal(serie_train: pd.Series | np.ndarray, m: int = 7) -> float:
-    """Calcula o MAE in-sample do modelo Naive Sazonal.
-
-    Para t >= m, a previsão in-sample é y_pred_t = y_{t-m}.
-
-    Args:
-        serie_train (pd.Series | np.ndarray): Série temporal de treino.
-        m (int): Período da sazonalidade. Defaults to 7.
-
-    Returns:
-        float: Valor do MAE in-sample do naive sazonal.
-    """
-    y = np.asarray(serie_train)
-    erros = np.abs(y[m:] - y[:-m])
-    return float(np.mean(erros))

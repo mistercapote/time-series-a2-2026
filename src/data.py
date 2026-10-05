@@ -106,4 +106,7 @@ def construir_full_data(
 
 
 def criar_dataframe(dict):
+    """
+    Cria um DataFrame a partir de um dicionário.
+    """
     return pd.DataFrame(dict)
