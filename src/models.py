@@ -2,13 +2,16 @@ import numpy as np
 import pandas as pd
 
 
-def mean(serie: pd.Series, n: int = 28):
+def mean(serie: pd.Series, n: int = 28) -> np.ndarray:
     """
     Calcula a previsão usando o método da média.
 
     Args:
         serie (pd.Series): Série temporal com os dados.
-        n (int): Número de períodos futuros a serem previstos. Defaults to 7.
+        n (int): Número de períodos futuros a serem previstos. Defaults to 28.
+
+    Returns:
+        np.ndarray: Previsões para os períodos futuros.
     """
     return np.full(shape=n, fill_value=serie.mean())
 
@@ -28,14 +31,17 @@ def naive(serie: pd.Series, n: int = 28) -> np.ndarray:
     return last * np.ones(n)
 
 
-def naive_sazonal(serie: pd.Series, m: int = 7, n: int = 28):
+def naive_sazonal(serie: pd.Series, m: int = 7, n: int = 28) -> np.ndarray:
     """
     Calcula a previsão usando o método Naive Sazonal.
 
     Args:
         serie (pd.Series): Série temporal com os dados.
         m (int): Período da sazonalidade. Defaults to 7.
-        n (int): Número de períodos futuros a serem previstos. Defaults to 7.
+        n (int): Número de períodos futuros a serem previstos. Defaults to 28.
+        
+    Returns:
+        np.ndarray: Previsões para os períodos futuros.
     """
     T = len(serie)
     Y_pred = []
@@ -46,13 +52,16 @@ def naive_sazonal(serie: pd.Series, m: int = 7, n: int = 28):
     return np.array(Y_pred)
 
 
-def drift(serie: pd.Series, n: int = 28):
+def drift(serie: pd.Series, n: int = 28) -> np.ndarray:
     """
     Calcula a previsão usando o método Naive Sazonal.
 
     Args:
         serie (pd.Series): Série temporal com os dados.
-        n (int): Número de períodos futuros a serem previstos. Defaults to 7.
+        n (int): Número de períodos futuros a serem previstos. Defaults to 28.
+        
+    Returns:
+        np.ndarray: Previsões para os períodos futuros.
     """
     T = len(serie)
     y_T = serie.iloc[-1]

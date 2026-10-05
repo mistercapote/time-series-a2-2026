@@ -104,3 +104,6 @@ def construir_full_data(
     """
     return pd.concat([train_data, validation_data], axis=0)
 
+
+def criar_dataframe(dict):
+    return pd.DataFrame(dict)
