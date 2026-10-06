@@ -215,8 +215,8 @@ def check_ai_usage(root: Path) -> tuple[float, str]:
 
 
 def evaluate(submission: Path, dados: Path) -> dict:
-    prev = _read_csv(submission / "previsoes_validacao.csv")
-    metricas = _read_csv(submission / "metricas.csv")
+    prev = _read_csv(submission / "resultados" / "previsoes_validacao.csv")
+    metricas = _read_csv(submission / "resultados" / "metricas.csv")
     val = pd.read_csv(dados / "validacao.csv", parse_dates=["date"])
     train = pd.read_csv(dados / "treino.csv", parse_dates=["date"])
     holdout = pd.read_csv(dados / "holdout_datas.csv", parse_dates=["date"])
