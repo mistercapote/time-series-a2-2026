@@ -105,8 +105,21 @@ def construir_full_data(
     return pd.concat([train_data, validation_data], axis=0)
 
 
-def criar_dataframe(dict):
+def criar_csv(dict, path):
     """
-    Cria um DataFrame a partir de um dicionário.
+    Cria um ficheiro CSV a partir de um dicionário de dados.
+    
+    Args:
+            dict (dict): Dicionário com os dados a serem salvos.
+            path (str): Caminho onde o arquivo CSV será salvo.
+    
+    Returns:
+        None
     """
-    return pd.DataFrame(dict)
+    df = pd.DataFrame(dict)
+
+    if "date" in df.columns:
+        df["date"] = pd.to_datetime(df["date"]).dt.strftime("%Y-%m-%d")
+
+    df.to_csv(f"resultados/{path}", index=False)
+    print(f"Arquivo '{path}' gerado com sucesso!")
