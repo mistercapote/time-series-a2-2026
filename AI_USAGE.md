@@ -2,17 +2,15 @@
 
 ## Ferramentas utilizadas
 
-Codex, assistente de IA generativa da OpenAI.
+- Codex, assistente de IA generativa da OpenAI - GPT-6.1 Sol.
+- Gemini via Antigravity
 
-## Apoio às análises
+## Ajudas fornecidas pelos modelos
 
-Modelo generativo utilizado para confirmar análises visuais das séries e ajudar na redação dos comentários.
+- Gemini utilizado na implementação do Algoritmo de Durbin-Levinson, em teoria é para estar fazendo do mesmo jeito que a biblioteca.
 
-O apoio envolveu a interpretação dos gráficos de treino de `store_total`, `FOODS` e `HOBBIES`, com atenção ao crescimento do nível, à sazonalidade semanal (m = 7) e aos zeros recorrentes de calendário.
+- Modelo generativo utilizado para confirmar análises visuais das séries e ajudar na redação e inserção dos comentários.
 
-## Solicitações realizadas
-
-Foi solicitada uma revisão do trabalho, seguida de orientação para interpretar os gráficos e organizar as observações de cada série. Por fim, foi solicitada a inserção dos comentários no notebook.
 
 ## Erros e correções
 
