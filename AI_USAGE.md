@@ -11,6 +11,10 @@
 
 - Modelo generativo utilizado para confirmar análises visuais das séries e ajudar na redação e inserção dos comentários.
 
+## Prompts Representativos
+
+- *"Diante das séries obtidas, confirme se a minha análise de tendência faz sentido, e me ajude a interpretar o gráfico do ACF"*
+
 
 ## Erros e correções
 
