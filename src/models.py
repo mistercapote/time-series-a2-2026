@@ -1,6 +1,6 @@
 import numpy as np
 import pandas as pd
-
+from statsmodels.tsa.statespace.sarimax import SARIMAX
 
 def mean(serie: pd.Series, n: int = 28) -> np.ndarray:
     """
@@ -69,3 +69,34 @@ def drift(serie: pd.Series, n: int = 28) -> np.ndarray:
     C = (y_T - y_1) / (T-1)
     h =  np.arange(1, n + 1)
     return y_T + h * C
+
+def sarima(serie: pd.Series, order: tuple[int], seasonal_order: tuple[int], n: int = 28, resid: bool = False) -> np.ndarray:
+    """
+    Calcula a previsão usando o método SARIMA(p,d,q)(P,D,Q)m
+
+    Args:
+        serie (pd.Series): Série temporal com os dados.
+        order (tuple[int]): Parâmetros (p,d,q).
+        seasonal_order (tuple[int]): Parâmetros (P,D,Q)m
+        n (int, optional): Número de períodos futuros a serem previstos. Defaults to 28.
+        resid (bool, optional): Retorna os resíduos e análise dos resíduos. Defaults to False.
+
+    Returns:
+        np.ndarray: Previsões para os períodos futuros.
+    """
+    model = SARIMAX(
+    serie,
+    order=order,
+    seasonal_order=seasonal_order,
+    enforce_stationarity=False,
+    enforce_invertibility=False
+    )
+
+    result = model.fit(disp=False)
+    prediction = result.get_forecast(steps=n)
+
+    if resid:
+        result.plot_diagnostics(figsize=(12, 8))
+        return result.resid
+
+    return prediction.predicted_mean
