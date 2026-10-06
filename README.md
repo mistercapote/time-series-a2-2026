@@ -36,10 +36,7 @@ Para recalcular os erros e regerar o arquivo `metricas.csv`, execute:
 ```bash
 python run.py
 ```
-Ou o comando integrado:
-```bash
-python -m pip install -r requirements.txt && python run.py
-```
+
 
 ## 2. Análise Interativa
 O fluxo completo de modelagem, diagnósticos de autocorrelação (ACF/PACF) e inspeção visual das previsões pode ser executado diretamente no Jupyter Notebook:
