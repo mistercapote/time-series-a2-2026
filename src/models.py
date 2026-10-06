@@ -54,7 +54,7 @@ def naive_sazonal(serie: pd.Series, m: int = 7, n: int = 28) -> np.ndarray:
 
 def drift(serie: pd.Series, n: int = 28) -> np.ndarray:
     """
-    Calcula a previsão usando o método Naive Sazonal.
+    Calcula a previsão usando o método Drift.
 
     Args:
         serie (pd.Series): Série temporal com os dados.
@@ -85,12 +85,12 @@ def sarima(serie: pd.Series, order: tuple[int], seasonal_order: tuple[int], n: i
         np.ndarray: Previsões para os períodos futuros.
     """
     model = SARIMAX(
-    serie,
-    order=order,
-    seasonal_order=seasonal_order,
-    enforce_stationarity=False,
-    enforce_invertibility=False
-    )
+                    serie,
+                    order=order,
+                    seasonal_order=seasonal_order,
+                    enforce_stationarity=False,
+                    enforce_invertibility=False
+                    )
 
     result = model.fit(disp=False)
     prediction = result.get_forecast(steps=n)
