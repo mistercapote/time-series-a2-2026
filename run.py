@@ -1,6 +1,6 @@
 """Script para reprodução automatizada das métricas de validação.
 
-Gera o arquivo 'metricas.csv' na raiz do projeto.
+Gera o arquivo 'resultados/metricas.csv'.
 """
 
 import src.data as data
@@ -16,7 +16,7 @@ DATA_FIM_VAL = "2016-04-24"
 SARIMA_DICT = {
     "store_total": ((0, 1, 2), (0, 1, 1, 7)),
     "FOODS": ((0, 1, 2), (0, 1, 1, 7)),
-    "HOBBIES": ((0, 1, 1), (0, 1, 1, 7)),
+    "HOBBIES": ((1, 1, 1), (0, 1, 1, 7)),
 }
 
 MODELOS_DICT = {
