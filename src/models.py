@@ -79,7 +79,7 @@ def sarima(serie: pd.Series, order: tuple[int], seasonal_order: tuple[int], n: i
         order (tuple[int]): Parâmetros (p,d,q).
         seasonal_order (tuple[int]): Parâmetros (P,D,Q)m
         n (int, optional): Número de períodos futuros a serem previstos. Defaults to 28.
-        resid (bool, optional): Retorna os resíduos e análise dos resíduos. Defaults to False.
+        resid (bool, optional): Retorna os resíduos. Defaults to False.
 
     Returns:
         np.ndarray: Previsões para os períodos futuros.
@@ -96,7 +96,6 @@ def sarima(serie: pd.Series, order: tuple[int], seasonal_order: tuple[int], n: i
     prediction = result.get_forecast(steps=n)
 
     if resid:
-        result.plot_diagnostics(figsize=(12, 8))
         return result.resid
 
     return prediction.predicted_mean
