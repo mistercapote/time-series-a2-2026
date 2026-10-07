@@ -4,7 +4,7 @@ Gera o arquivo 'resultados/metricas.csv'.
 """
 
 import src.data as data
-import src.metrics as metrics
+import src.model_checking as model_checking
 import src.models as models
 
 CAMINHO_TRAIN = "dados/treino.csv"
@@ -14,9 +14,9 @@ DATA_INICIO_VAL = "2016-03-28"
 DATA_FIM_VAL = "2016-04-24"
 
 SARIMA_DICT = {
-    "store_total": ((0, 1, 2), (0, 1, 1, 7)),
-    "FOODS": ((0, 1, 2), (0, 1, 1, 7)),
-    "HOBBIES": ((1, 1, 1), (0, 1, 1, 7)),
+    "store_total": ((1, 1, 1), (0, 1, 1, 7)),
+    "FOODS": ((1, 1, 1), (0, 1, 1, 7)),
+    "HOBBIES": ((0, 1, 2), (0, 1, 1, 7)),
 }
 
 MODELOS_DICT = {
@@ -36,25 +36,8 @@ def main():
     train_data = data.carregar_dados(caminho=str(CAMINHO_TRAIN), data_fim=DATA_FIM_TRAIN)
     val_data = data.carregar_dados(caminho=str(CAMINHO_VAL), data_inicio=DATA_INICIO_VAL,data_fim=DATA_FIM_VAL)
     labels = val_data.columns[1:]
-    n_val = len(val_data)
 
-    resultados = []
-    for label in labels:
-        y_train = train_data[label]
-        y_val = val_data[label].values
-        for nome_modelo, func_modelo in MODELOS_DICT.items():
-            y_pred = func_modelo(y_train, n_val)
-            val_mae = metrics.mae(y_val, y_pred)
-            val_rmse = metrics.rmse(y_val, y_pred)
-            val_mase = metrics.mase(y_train, y_val, y_pred, m=7)
-
-            resultados.append({
-                "series": label,
-                "modelo": nome_modelo,
-                "mae": val_mae,
-                "rmse": val_rmse,
-                "mase": val_mase,
-            })
+    resultados = model_checking.comparar_metricas(MODELOS_DICT, train_data, val_data, labels)
 
     data.criar_csv(resultados, "metricas.csv")
 

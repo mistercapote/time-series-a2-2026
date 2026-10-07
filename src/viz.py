@@ -1,4 +1,5 @@
 import matplotlib.pyplot as plt
+from pathlib import Path
 import pandas as pd
 import numpy as np
 
@@ -254,4 +255,44 @@ def grafico_PACF(
     ax.set_ylabel(r"$\hat{\alpha}(h)$")
     ax.set_ylim(-1.1, 1.1)
     ax.grid(True, linestyle="--", alpha=0.4)
+    plt.show()
+
+def grafico_comparativo_metricas_por_modelo(resultados: list[dict]):
+    """
+    Gera um gráfico que compara as métricas de cada modelo em cada série.
+
+    Args:
+        resultados (list[dict]): Resultados com as métricas.
+    """
+    metricas_grafico = pd.DataFrame(resultados)
+    ordem_modelos = ["media", "naive", "naive_sazonal", "drift", "sarima"]
+    nomes_modelos = ["Média", "Naive", "Naive sazonal", "Drift", "SARIMA"]
+    series_grafico = ["store_total", "FOODS", "HOBBIES"]
+    cores = ["#94a3b8", "#94a3b8", "#94a3b8", "#94a3b8", "#16827c"]
+
+    fig, axes = plt.subplots(3, 3, figsize=(15, 10), constrained_layout=True)
+    for linha, serie in enumerate(series_grafico):
+        dados_serie = metricas_grafico.loc[
+            metricas_grafico["series"] == serie
+        ].set_index("modelo").reindex(ordem_modelos)
+        for coluna, metrica in enumerate(["mae", "rmse", "mase"]):
+            ax = axes[linha, coluna]
+            valores = dados_serie[metrica].to_numpy()
+            barras = ax.barh(nomes_modelos, valores, color=cores)
+            ax.invert_yaxis()
+            ax.set_xlim(0, valores.max() * 1.25)
+            ax.bar_label(barras, fmt="%.3f" if metrica == "mase" else "%.2f", padding=4)
+            ax.set_title(f"{serie} — {metrica.upper()}", loc="left", fontweight="bold")
+            ax.set_xlabel("Erro escalonado" if metrica == "mase" else "Vendas/dia")
+            ax.set_axisbelow(True)
+            ax.grid(axis="x", alpha=0.2)
+            ax.spines[["top", "right"]].set_visible(False)
+
+    fig.suptitle(
+        "Erros de previsão na validação de 28 dias\n"
+        "Menor é melhor • SARIMA em verde • escalas próprias em cada painel",
+        fontsize=15,
+    )
+    Path("resultados").mkdir(exist_ok=True)
+    fig.savefig("resultados/comparacao_metricas.png", dpi=160, bbox_inches="tight")
     plt.show()
