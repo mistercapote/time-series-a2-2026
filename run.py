@@ -1,6 +1,6 @@
-"""Script para reprodução automatizada das métricas de validação.
+"""Script para reprodução automatizada das previsões e métricas de validação.
 
-Gera o arquivo 'resultados/metricas.csv'.
+Gera 'previsoes_validacao.csv' e 'metricas.csv', em resultados/ e na raiz.
 """
 
 import src.data as data
@@ -36,6 +36,10 @@ def main():
     train_data = data.carregar_dados(caminho=str(CAMINHO_TRAIN), data_fim=DATA_FIM_TRAIN)
     val_data = data.carregar_dados(caminho=str(CAMINHO_VAL), data_inicio=DATA_INICIO_VAL,data_fim=DATA_FIM_VAL)
     labels = val_data.columns[1:]
+
+    registros = model_checking.comparar_previsoes(MODELOS_DICT, train_data, val_data["date"], labels)
+
+    data.criar_csv(registros, "previsoes_validacao.csv")
 
     resultados = model_checking.comparar_metricas(MODELOS_DICT, train_data, val_data, labels)
 

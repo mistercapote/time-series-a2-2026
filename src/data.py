@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import pandas as pd
 
 
@@ -108,11 +110,14 @@ def construir_full_data(
 def criar_csv(dict, path):
     """
     Cria um ficheiro CSV a partir de um dicionário de dados.
-    
+
+    Grava em duas pastas: `resultados/`, onde o check da Task 1 lê, e a raiz
+    do repositório, onde o check da Task 2 lê. O conteúdo é o mesmo nas duas.
+
     Args:
             dict (dict): Dicionário com os dados a serem salvos.
-            path (str): Caminho onde o arquivo CSV será salvo.
-    
+            path (str): Nome do arquivo CSV a ser salvo.
+
     Returns:
         None
     """
@@ -121,5 +126,7 @@ def criar_csv(dict, path):
     if "date" in df.columns:
         df["date"] = pd.to_datetime(df["date"]).dt.strftime("%Y-%m-%d")
 
-    df.to_csv(f"resultados/{path}", index=False)
-    print(f"Arquivo '{path}' gerado com sucesso!")
+    Path("resultados").mkdir(exist_ok=True)
+    df.to_csv(Path("resultados") / path, index=False)
+    df.to_csv(Path(path), index=False)
+    print(f"Arquivo '{path}' gerado em resultados/ e na raiz!")
