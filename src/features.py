@@ -1,16 +1,9 @@
 import pandas as pd
 
+import src.config as config
 import src.data as data
 
-CAMINHO_COVARIAVEIS = "dados/covariaveis.csv"
-CAMINHO_TREINO = "dados/treino.csv"
-CAMINHO_VALIDACAO = "dados/validacao.csv"
-
-FIM_TREINO = "2016-03-27"
-INICIO_VALIDACAO = "2016-03-28"
-FIM_VALIDACAO = "2016-04-24"
-
-SERIES = ["store_total", "FOODS", "HOBBIES"]
+SERIES = config.SERIES
 PRECOS = [f"preco_{s}" for s in SERIES]
 TIPOS_EVENTO = ["Cultural", "National", "Religious", "Sporting"]
 
@@ -20,7 +13,7 @@ GRUPO_NUMERICO = ["semana_do_ano", "mes", "ano"]
 GRUPO_EVENT_TYPE = [f"event_type_{t}" for t in TIPOS_EVENTO]
 
 
-def carregar_covariaveis(caminho: str = CAMINHO_COVARIAVEIS) -> pd.DataFrame:
+def carregar_covariaveis(caminho: str = config.CAMINHO_COVARIAVEIS) -> pd.DataFrame:
     """
     Carrega o arquivo de covariáveis com a coluna de data já convertida.
 
@@ -144,7 +137,7 @@ def grupo_event_name(X: pd.DataFrame) -> list[str]:
     return [c for c in X.columns if c.startswith("event_name_")]
 
 
-def construir_features(caminho: str = CAMINHO_COVARIAVEIS) -> pd.DataFrame:
+def construir_features(caminho: str = config.CAMINHO_COVARIAVEIS) -> pd.DataFrame:
     """
     Monta a tabela de features para todas as datas do arquivo.
 
@@ -170,31 +163,6 @@ def construir_features(caminho: str = CAMINHO_COVARIAVEIS) -> pd.DataFrame:
     X = adicionar_dia_da_semana(X, covariaveis["date"])
 
     return X
-
-
-def cortar_periodo(
-    X: pd.DataFrame, data_inicio: str = None, data_fim: str = None
-) -> pd.DataFrame:
-    """
-    Recorta a tabela de features num intervalo de datas.
-
-    Args:
-        X (pd.DataFrame): Tabela de features.
-        data_inicio (str): Data de início. Padrão é None.
-        data_fim (str): Data de fim. Padrão é None.
-
-    Returns:
-        pd.DataFrame: Tabela no intervalo selecionado.
-    """
-    recorte = X.copy()
-
-    if data_inicio is not None:
-        recorte = recorte[recorte["date"] >= pd.Timestamp(data_inicio)]
-
-    if data_fim is not None:
-        recorte = recorte[recorte["date"] <= pd.Timestamp(data_fim)]
-
-    return recorte.reset_index(drop=True)
 
 
 def colunas_do_modelo(
@@ -228,7 +196,7 @@ def colunas_do_modelo(
 
 def montar_tabela(
     caminho_y: str,
-    caminho_covariaveis: str = CAMINHO_COVARIAVEIS,
+    caminho_covariaveis: str = config.CAMINHO_COVARIAVEIS,
     data_inicio: str = None,
     data_fim: str = None,
 ) -> pd.DataFrame:
@@ -266,9 +234,9 @@ def montar_tabela(
 
 
 def montar_treino_e_validacao(
-    caminho_treino: str = CAMINHO_TREINO,
-    caminho_validacao: str = CAMINHO_VALIDACAO,
-    caminho_covariaveis: str = CAMINHO_COVARIAVEIS,
+    caminho_treino: str = config.CAMINHO_TRAIN,
+    caminho_validacao: str = config.CAMINHO_VAL,
+    caminho_covariaveis: str = config.CAMINHO_COVARIAVEIS,
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
     """
     Monta as tabelas completas de treino e de validação.
@@ -284,12 +252,12 @@ def montar_treino_e_validacao(
     Returns:
         tuple[pd.DataFrame, pd.DataFrame]: Tabela de treino e de validação.
     """
-    treino = montar_tabela(caminho_treino, caminho_covariaveis, data_fim=FIM_TREINO)
+    treino = montar_tabela(caminho_treino, caminho_covariaveis, data_fim=config.DATA_FIM_TRAIN)
     validacao = montar_tabela(
         caminho_validacao,
         caminho_covariaveis,
-        data_inicio=INICIO_VALIDACAO,
-        data_fim=FIM_VALIDACAO,
+        data_inicio=config.DATA_INICIO_VAL,
+        data_fim=config.DATA_FIM_VAL,
     )
 
     return treino, validacao
