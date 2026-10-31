@@ -11,18 +11,16 @@ INICIO_VALIDACAO = "2016-03-28"
 FIM_VALIDACAO = "2016-04-24"
 
 SERIES = ["store_total", "FOODS", "HOBBIES"]
-DIAS_SEMANA = ["seg", "ter", "qua", "qui", "sex", "sab", "dom"]
+PRECOS = [f"preco_{s}" for s in SERIES]
 TIPOS_EVENTO = ["Cultural", "National", "Religious", "Sporting"]
-PRECOS = ["preco_store_total", "preco_FOODS", "preco_HOBBIES"]
 
 # Grupos de colunas, para descartar um bloco inteiro de uma vez.
-GRUPO_DIA_SEMANA = DIAS_SEMANA[1:]
-GRUPO_NUMERICO = ["dia_do_mes", "mes", "ano"]
-GRUPO_MES = [f"mes_{m}" for m in range(2, 13)]
-GRUPO_EVENTO = [f"evento_{t.lower()}" for t in TIPOS_EVENTO] + ["natal", "vespera_natal"]
+GRUPO_DIA_SEMANA = [f"dia_da_semana_{i}" for i in range(7)]
+GRUPO_NUMERICO = ["semana_do_ano", "mes", "ano"]
+GRUPO_EVENT_TYPE = [f"event_type_{t}" for t in TIPOS_EVENTO]
 
 
-def carregar_covariaveis(caminho: str = "dados/covariaveis.csv") -> pd.DataFrame:
+def carregar_covariaveis(caminho: str = CAMINHO_COVARIAVEIS) -> pd.DataFrame:
     """
     Carrega o arquivo de covariáveis com a coluna de data já convertida.
 
@@ -37,16 +35,30 @@ def carregar_covariaveis(caminho: str = "dados/covariaveis.csv") -> pd.DataFrame
     return df.sort_values("date").reset_index(drop=True)
 
 
+def nomes_de_evento(covariaveis: pd.DataFrame) -> list[str]:
+    """
+    Lista os nomes de evento que aparecem no arquivo, em ordem alfabética.
+
+    Os nomes saem dos dados em vez de ficarem fixos no código, para a tabela
+    não quebrar se o arquivo de covariáveis mudar.
+
+    Args:
+        covariaveis (pd.DataFrame): Covariáveis carregadas.
+
+    Returns:
+        list[str]: Nomes de evento encontrados.
+    """
+    nomes = pd.concat([covariaveis["event_name_1"], covariaveis["event_name_2"]])
+
+    return sorted(nomes.dropna().unique())
+
+
 def adicionar_calendario(X: pd.DataFrame, datas: pd.Series) -> pd.DataFrame:
     """
     Acrescenta as colunas que saem apenas da data.
 
-    O dia da semana, o mês e o ano entram como indicadoras 0/1, cada bloco
-    deixando a primeira categoria de fora para servir de base ao intercepto:
-    segunda-feira, janeiro e o primeiro ano do arquivo. O mês e o ano entram
-    também na forma numérica, para o caso de o grupo preferir usá-los como
-    tendência; as duas formas são redundantes entre si, então o ajuste deve
-    levar uma ou a outra, nunca as duas.
+    A semana do ano, o mês e o ano entram na forma numérica. As indicadoras de
+    dia da semana ficam em adicionar_dia_da_semana().
 
     Args:
         X (pd.DataFrame): Tabela de features em construção.
@@ -56,35 +68,44 @@ def adicionar_calendario(X: pd.DataFrame, datas: pd.Series) -> pd.DataFrame:
         pd.DataFrame: Tabela com as colunas de calendário.
     """
     X = X.copy()
-    dia_da_semana = datas.dt.dayofweek
 
-    for i, nome in enumerate(DIAS_SEMANA):
-        if i == 0:
-            continue
-        X[nome] = (dia_da_semana == i).astype(int)
-
-    X["dia_do_mes"] = datas.dt.day
+    X["semana_do_ano"] = datas.dt.isocalendar()["week"].astype(int)
     X["mes"] = datas.dt.month
     X["ano"] = datas.dt.year
 
-    for mes in range(2, 13):
-        X[f"mes_{mes}"] = (datas.dt.month == mes).astype(int)
+    return X
 
-    for ano in sorted(datas.dt.year.unique())[1:]:
-        X[f"ano_{ano}"] = (datas.dt.year == ano).astype(int)
 
-    X["natal"] = ((datas.dt.month == 12) & (datas.dt.day == 25)).astype(int)
-    X["vespera_natal"] = ((datas.dt.month == 12) & (datas.dt.day == 24)).astype(int)
+def adicionar_dia_da_semana(X: pd.DataFrame, datas: pd.Series) -> pd.DataFrame:
+    """
+    Acrescenta sete indicadoras 0/1 de dia da semana, de segunda (0) a domingo (6).
+
+    Atenção: as sete somam 1 em toda linha, então são colineares com o
+    intercepto. O ajuste deve descartar uma delas ou rodar sem intercepto;
+    ver GRUPO_DIA_SEMANA.
+
+    Args:
+        X (pd.DataFrame): Tabela de features em construção.
+        datas (pd.Series): Coluna de datas.
+
+    Returns:
+        pd.DataFrame: Tabela com as indicadoras de dia da semana.
+    """
+    X = X.copy()
+    dia_da_semana = datas.dt.dayofweek
+
+    for i in range(7):
+        X[f"dia_da_semana_{i}"] = (dia_da_semana == i).astype(int)
 
     return X
 
 
 def adicionar_eventos(X: pd.DataFrame, covariaveis: pd.DataFrame) -> pd.DataFrame:
     """
-    Acrescenta uma indicadora por tipo de evento.
+    Acrescenta uma indicadora por tipo de evento e uma por nome de evento.
 
-    Um dia pode ter até dois eventos, então os dois campos de tipo entram na
-    mesma indicadora.
+    Um dia pode ter até dois eventos, então os dois campos do arquivo entram
+    na mesma indicadora.
 
     Args:
         X (pd.DataFrame): Tabela de features em construção.
@@ -98,12 +119,32 @@ def adicionar_eventos(X: pd.DataFrame, covariaveis: pd.DataFrame) -> pd.DataFram
     for tipo in TIPOS_EVENTO:
         primeiro = covariaveis["event_type_1"] == tipo
         segundo = covariaveis["event_type_2"] == tipo
-        X[f"evento_{tipo.lower()}"] = (primeiro | segundo).astype(int)
+        X[f"event_type_{tipo}"] = (primeiro | segundo).astype(int)
+
+    for nome in nomes_de_evento(covariaveis):
+        primeiro = covariaveis["event_name_1"] == nome
+        segundo = covariaveis["event_name_2"] == nome
+        X[f"event_name_{nome}"] = (primeiro | segundo).astype(int)
 
     return X
 
 
-def construir_features(caminho: str = "dados/covariaveis.csv") -> pd.DataFrame:
+def grupo_event_name(X: pd.DataFrame) -> list[str]:
+    """
+    Lista as indicadoras de nome de evento presentes na tabela.
+
+    Os nomes dependem do arquivo, então saem da própria tabela.
+
+    Args:
+        X (pd.DataFrame): Tabela de features.
+
+    Returns:
+        list[str]: Nomes das colunas indicadoras de nome de evento.
+    """
+    return [c for c in X.columns if c.startswith("event_name_")]
+
+
+def construir_features(caminho: str = CAMINHO_COVARIAVEIS) -> pd.DataFrame:
     """
     Monta a tabela de features para todas as datas do arquivo.
 
@@ -119,12 +160,14 @@ def construir_features(caminho: str = "dados/covariaveis.csv") -> pd.DataFrame:
     covariaveis = carregar_covariaveis(caminho)
 
     X = pd.DataFrame({"date": covariaveis["date"]})
-    X["snap"] = covariaveis["snap_CA"]
-    X = adicionar_calendario(X, covariaveis["date"])
-    X = adicionar_eventos(X, covariaveis)
+    X["snap_CA"] = covariaveis["snap_CA"]
 
     for coluna in PRECOS:
         X[coluna] = covariaveis[coluna]
+
+    X = adicionar_calendario(X, covariaveis["date"])
+    X = adicionar_eventos(X, covariaveis)
+    X = adicionar_dia_da_semana(X, covariaveis["date"])
 
     return X
 
@@ -162,8 +205,8 @@ def colunas_do_modelo(
 
     Sempre ficam de fora a data, as colunas de venda e o preço das outras duas
     categorias. O argumento 'excluir' descarta mais colunas, e aceita os nomes
-    de grupo deste módulo: GRUPO_NUMERICO, GRUPO_MES, GRUPO_EVENTO,
-    GRUPO_DIA_SEMANA e grupo_ano(X).
+    de grupo deste módulo: GRUPO_DIA_SEMANA, GRUPO_NUMERICO, GRUPO_EVENT_TYPE
+    e grupo_event_name(X).
 
     Args:
         X (pd.DataFrame): Tabela de features.
@@ -181,21 +224,6 @@ def colunas_do_modelo(
         descartar |= set(excluir)
 
     return [c for c in X.columns if c not in descartar]
-
-
-def grupo_ano(X: pd.DataFrame) -> list[str]:
-    """
-    Lista as indicadoras de ano presentes na tabela.
-
-    Os nomes dependem dos anos do arquivo, então saem da própria tabela.
-
-    Args:
-        X (pd.DataFrame): Tabela de features.
-
-    Returns:
-        list[str]: Nomes das colunas indicadoras de ano.
-    """
-    return [c for c in X.columns if c.startswith("ano_")]
 
 
 def montar_tabela(
@@ -254,7 +282,7 @@ def montar_treino_e_validacao(
         caminho_covariaveis (str): Caminho do arquivo de covariáveis.
 
     Returns:
-        tuple[pd.DataFrame, pd.DataFrame]: Tabela de treino e tabela de validação.
+        tuple[pd.DataFrame, pd.DataFrame]: Tabela de treino e de validação.
     """
     treino = montar_tabela(caminho_treino, caminho_covariaveis, data_fim=FIM_TREINO)
     validacao = montar_tabela(
@@ -293,7 +321,9 @@ def serie_completa(
         raise ValueError(f"série desconhecida: {serie!r}. Use uma de {SERIES}.")
 
     if periodo not in ("treino", "validacao"):
-        raise ValueError(f"período desconhecido: {periodo!r}. Use 'treino' ou 'validacao'.")
+        raise ValueError(
+            f"período desconhecido: {periodo!r}. Use 'treino' ou 'validacao'."
+        )
 
     if tabela is None:
         treino, validacao = montar_treino_e_validacao()
@@ -336,23 +366,21 @@ def separar_X_y(
 if __name__ == "__main__":
     treino, validacao = montar_treino_e_validacao()
 
-    print(f"treino:    {treino.shape[0]} linhas x {treino.shape[1]} colunas")
-    print(f"validação: {validacao.shape[0]} linhas x {validacao.shape[1]} colunas")
+    print(f"tabela larga -> treino {treino.shape}, validação {validacao.shape}")
     print()
 
-    hobbies = serie_completa("HOBBIES", "treino", tabela=treino)
-    print(f'serie_completa("HOBBIES", "treino") -> {hobbies.shape}')
-    print(hobbies.head(3).to_string(index=False))
+    foods = serie_completa("FOODS", "treino", tabela=treino)
+    print(f'serie_completa("FOODS", "treino") -> {foods.shape}')
+    print(foods.columns.tolist())
     print()
 
-    X, y = separar_X_y("HOBBIES", "treino", tabela=treino)
-    print(f'separar_X_y("HOBBIES") -> X {X.shape}, y {y.shape} chamado "{y.name}"')
+    X, y = separar_X_y("FOODS", "treino", tabela=treino)
+    print(f'separar_X_y("FOODS") -> X {X.shape}, y {y.shape} chamado "{y.name}"')
     print()
 
-    enxuto = serie_completa(
-        "HOBBIES", "treino",
-        excluir=GRUPO_NUMERICO + GRUPO_MES + GRUPO_EVENTO,
-        tabela=treino,
-    )
-    print(f"mesma série descartando numérico, mês e evento -> {enxuto.shape}")
-    print(f"  {list(enxuto.columns)}")
+    print("grupos que podem ser descartados:")
+    print(f"  GRUPO_DIA_SEMANA       {len(GRUPO_DIA_SEMANA)} colunas")
+    print(f"  GRUPO_NUMERICO         {GRUPO_NUMERICO}")
+    print(f"  GRUPO_EVENT_TYPE       {GRUPO_EVENT_TYPE}")
+    print(f"  grupo_event_name(X)    {len(grupo_event_name(treino))} colunas")
+    print(f"  PRECOS                 {PRECOS}")
