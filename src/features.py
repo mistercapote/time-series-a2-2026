@@ -15,6 +15,12 @@ DIAS_SEMANA = ["seg", "ter", "qua", "qui", "sex", "sab", "dom"]
 TIPOS_EVENTO = ["Cultural", "National", "Religious", "Sporting"]
 PRECOS = ["preco_store_total", "preco_FOODS", "preco_HOBBIES"]
 
+# Grupos de colunas, para descartar um bloco inteiro de uma vez.
+GRUPO_DIA_SEMANA = DIAS_SEMANA[1:]
+GRUPO_NUMERICO = ["dia_do_mes", "mes", "ano"]
+GRUPO_MES = [f"mes_{m}" for m in range(2, 13)]
+GRUPO_EVENTO = [f"evento_{t.lower()}" for t in TIPOS_EVENTO] + ["natal", "vespera_natal"]
+
 
 def carregar_covariaveis(caminho: str = "dados/covariaveis.csv") -> pd.DataFrame:
     """
@@ -35,8 +41,12 @@ def adicionar_calendario(X: pd.DataFrame, datas: pd.Series) -> pd.DataFrame:
     """
     Acrescenta as colunas que saem apenas da data.
 
-    O dia da semana entra como indicadoras 0/1, deixando a segunda-feira de
-    fora para servir de base ao intercepto.
+    O dia da semana, o mês e o ano entram como indicadoras 0/1, cada bloco
+    deixando a primeira categoria de fora para servir de base ao intercepto:
+    segunda-feira, janeiro e o primeiro ano do arquivo. O mês e o ano entram
+    também na forma numérica, para o caso de o grupo preferir usá-los como
+    tendência; as duas formas são redundantes entre si, então o ajuste deve
+    levar uma ou a outra, nunca as duas.
 
     Args:
         X (pd.DataFrame): Tabela de features em construção.
@@ -54,6 +64,15 @@ def adicionar_calendario(X: pd.DataFrame, datas: pd.Series) -> pd.DataFrame:
         X[nome] = (dia_da_semana == i).astype(int)
 
     X["dia_do_mes"] = datas.dt.day
+    X["mes"] = datas.dt.month
+    X["ano"] = datas.dt.year
+
+    for mes in range(2, 13):
+        X[f"mes_{mes}"] = (datas.dt.month == mes).astype(int)
+
+    for ano in sorted(datas.dt.year.unique())[1:]:
+        X[f"ano_{ano}"] = (datas.dt.year == ano).astype(int)
+
     X["natal"] = ((datas.dt.month == 12) & (datas.dt.day == 25)).astype(int)
     X["vespera_natal"] = ((datas.dt.month == 12) & (datas.dt.day == 24)).astype(int)
 
@@ -135,15 +154,22 @@ def cortar_periodo(
     return recorte.reset_index(drop=True)
 
 
-def colunas_do_modelo(X: pd.DataFrame, serie: str) -> list[str]:
+def colunas_do_modelo(
+    X: pd.DataFrame, serie: str, excluir: list[str] = None
+) -> list[str]:
     """
     Lista as colunas que entram no ajuste de uma série.
 
-    Cada série usa o preço da própria categoria e descarta o das outras.
+    Sempre ficam de fora a data, as colunas de venda e o preço das outras duas
+    categorias. O argumento 'excluir' descarta mais colunas, e aceita os nomes
+    de grupo deste módulo: GRUPO_NUMERICO, GRUPO_MES, GRUPO_EVENTO,
+    GRUPO_DIA_SEMANA e grupo_ano(X).
 
     Args:
         X (pd.DataFrame): Tabela de features.
         serie (str): Nome da série ('store_total', 'FOODS' ou 'HOBBIES').
+        excluir (list[str]): Colunas a descartar além das obrigatórias.
+          Padrão é None.
 
     Returns:
         list[str]: Nomes das colunas a usar no ajuste.
@@ -151,7 +177,25 @@ def colunas_do_modelo(X: pd.DataFrame, serie: str) -> list[str]:
     preco_da_serie = f"preco_{serie}"
     descartar = {"date"} | set(SERIES) | {p for p in PRECOS if p != preco_da_serie}
 
+    if excluir is not None:
+        descartar |= set(excluir)
+
     return [c for c in X.columns if c not in descartar]
+
+
+def grupo_ano(X: pd.DataFrame) -> list[str]:
+    """
+    Lista as indicadoras de ano presentes na tabela.
+
+    Os nomes dependem dos anos do arquivo, então saem da própria tabela.
+
+    Args:
+        X (pd.DataFrame): Tabela de features.
+
+    Returns:
+        list[str]: Nomes das colunas indicadoras de ano.
+    """
+    return [c for c in X.columns if c.startswith("ano_")]
 
 
 def montar_tabela(
@@ -229,6 +273,18 @@ if __name__ == "__main__":
     print(f"treino:    {treino.shape[0]} linhas x {treino.shape[1]} colunas")
     print(f"validação: {validacao.shape[0]} linhas x {validacao.shape[1]} colunas")
     print()
-    print("colunas de entrada de cada série:")
-    for serie in SERIES:
-        print(f"  {serie}: {colunas_do_modelo(treino, serie)}")
+    todas = colunas_do_modelo(treino, "FOODS")
+    print(f"colunas de entrada por série: {len(todas)}")
+    print()
+    print("grupos que podem ser descartados:")
+    print(f"  GRUPO_DIA_SEMANA  {GRUPO_DIA_SEMANA}")
+    print(f"  GRUPO_NUMERICO    {GRUPO_NUMERICO}")
+    print(f"  GRUPO_MES         {len(GRUPO_MES)} colunas, de mes_2 a mes_12")
+    print(f"  grupo_ano(X)      {grupo_ano(treino)}")
+    print(f"  GRUPO_EVENTO      {GRUPO_EVENTO}")
+    print()
+    print("exemplo de descarte — só dia da semana, snap e indicadoras de ano:")
+    enxuto = colunas_do_modelo(
+        treino, "FOODS", excluir=GRUPO_NUMERICO + GRUPO_MES + GRUPO_EVENTO + PRECOS
+    )
+    print(f"  {enxuto}")
