@@ -69,14 +69,15 @@ def verificar_intervalo_data(
 
 def verificar_vazamento(df1: pd.DataFrame, df2: pd.DataFrame) -> bool:
     """
-    Verifica se existem datas de um dataframe em outro (vazamento de dados).
+    Verifica se os dois dataframes não compartilham nenhuma data.
 
     Args:
         df1 (pd.DataFrame): Primeiro dataframe
         df2 (pd.DataFrame): Segundo dataframe
 
     Returns:
-        bool: True se tiver vazamento de dados. False caso contrário.
+        bool: True se os períodos são disjuntos, ou seja, se NÃO há vazamento.
+          False se alguma data aparece nos dois.
     """
     return set(df1["date"]).isdisjoint(df2["date"])
 
