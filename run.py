@@ -3,21 +3,18 @@
 Gera 'previsoes_validacao.csv' e 'metricas.csv', em resultados/ e na raiz.
 """
 
+import src.config as config
 import src.data as data
 import src.model_checking as model_checking
 import src.models as models
 
-CAMINHO_TRAIN = "dados/treino.csv"
-CAMINHO_VAL = "dados/validacao.csv"
-DATA_FIM_TRAIN = "2016-03-27"
-DATA_INICIO_VAL = "2016-03-28"
-DATA_FIM_VAL = "2016-04-24"
+CAMINHO_TRAIN = config.CAMINHO_TRAIN
+CAMINHO_VAL = config.CAMINHO_VAL
+DATA_FIM_TRAIN = config.DATA_FIM_TRAIN
+DATA_INICIO_VAL = config.DATA_INICIO_VAL
+DATA_FIM_VAL = config.DATA_FIM_VAL
 
-SARIMA_DICT = {
-    "store_total": ((1, 1, 1), (0, 1, 1, 7)),
-    "FOODS": ((1, 1, 1), (0, 1, 1, 7)),
-    "HOBBIES": ((0, 1, 2), (0, 1, 1, 7)),
-}
+SARIMA_DICT = config.SARIMA_DICT
 
 MODELOS_DICT = {
     "media": lambda s, n: models.mean(s, n=n),
