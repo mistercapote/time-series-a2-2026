@@ -267,24 +267,92 @@ def montar_treino_e_validacao(
     return treino, validacao
 
 
+def serie_completa(
+    serie: str,
+    periodo: str = "treino",
+    excluir: list[str] = None,
+    tabela: pd.DataFrame = None,
+) -> pd.DataFrame:
+    """
+    Devolve a tabela de uma única série: a data, a venda dela e as entradas.
+
+    Fica de fora tudo que pertence às outras séries, inclusive o preço delas.
+
+    Args:
+        serie (str): Nome da série ('store_total', 'FOODS' ou 'HOBBIES').
+        periodo (str): 'treino' ou 'validacao'. Padrão é 'treino'.
+        excluir (list[str]): Colunas de entrada a descartar, aceitando os
+          grupos do módulo. Padrão é None.
+        tabela (pd.DataFrame): Tabela já montada, para evitar reler os
+          arquivos. Padrão é None.
+
+    Returns:
+        pd.DataFrame: Tabela com 'date', a coluna da série e as entradas dela.
+    """
+    if serie not in SERIES:
+        raise ValueError(f"série desconhecida: {serie!r}. Use uma de {SERIES}.")
+
+    if periodo not in ("treino", "validacao"):
+        raise ValueError(f"período desconhecido: {periodo!r}. Use 'treino' ou 'validacao'.")
+
+    if tabela is None:
+        treino, validacao = montar_treino_e_validacao()
+        tabela = treino if periodo == "treino" else validacao
+
+    colunas = colunas_do_modelo(tabela, serie, excluir=excluir)
+
+    return tabela[["date", serie] + colunas]
+
+
+def separar_X_y(
+    serie: str,
+    periodo: str = "treino",
+    excluir: list[str] = None,
+    tabela: pd.DataFrame = None,
+) -> tuple[pd.DataFrame, pd.Series]:
+    """
+    Devolve as entradas e o alvo de uma série, prontos para o ajuste.
+
+    A série devolvida mantém o próprio nome, que é como o run.py descobre de
+    qual série se trata (serie.name).
+
+    Args:
+        serie (str): Nome da série ('store_total', 'FOODS' ou 'HOBBIES').
+        periodo (str): 'treino' ou 'validacao'. Padrão é 'treino'.
+        excluir (list[str]): Colunas de entrada a descartar. Padrão é None.
+        tabela (pd.DataFrame): Tabela já montada. Padrão é None.
+
+    Returns:
+        tuple[pd.DataFrame, pd.Series]: As entradas e o alvo.
+    """
+    completa = serie_completa(serie, periodo, excluir=excluir, tabela=tabela)
+
+    X = completa.drop(columns=["date", serie])
+    y = completa[serie]
+
+    return X, y
+
+
 if __name__ == "__main__":
     treino, validacao = montar_treino_e_validacao()
 
     print(f"treino:    {treino.shape[0]} linhas x {treino.shape[1]} colunas")
     print(f"validação: {validacao.shape[0]} linhas x {validacao.shape[1]} colunas")
     print()
-    todas = colunas_do_modelo(treino, "FOODS")
-    print(f"colunas de entrada por série: {len(todas)}")
+
+    hobbies = serie_completa("HOBBIES", "treino", tabela=treino)
+    print(f'serie_completa("HOBBIES", "treino") -> {hobbies.shape}')
+    print(hobbies.head(3).to_string(index=False))
     print()
-    print("grupos que podem ser descartados:")
-    print(f"  GRUPO_DIA_SEMANA  {GRUPO_DIA_SEMANA}")
-    print(f"  GRUPO_NUMERICO    {GRUPO_NUMERICO}")
-    print(f"  GRUPO_MES         {len(GRUPO_MES)} colunas, de mes_2 a mes_12")
-    print(f"  grupo_ano(X)      {grupo_ano(treino)}")
-    print(f"  GRUPO_EVENTO      {GRUPO_EVENTO}")
+
+    X, y = separar_X_y("HOBBIES", "treino", tabela=treino)
+    print(f'separar_X_y("HOBBIES") -> X {X.shape}, y {y.shape} chamado "{y.name}"')
     print()
-    print("exemplo de descarte — só dia da semana, snap e indicadoras de ano:")
-    enxuto = colunas_do_modelo(
-        treino, "FOODS", excluir=GRUPO_NUMERICO + GRUPO_MES + GRUPO_EVENTO + PRECOS
+
+    enxuto = serie_completa(
+        "HOBBIES", "treino",
+        excluir=GRUPO_NUMERICO + GRUPO_MES + GRUPO_EVENTO,
+        tabela=treino,
     )
-    print(f"  {enxuto}")
+    print(f"mesma série descartando numérico, mês e evento -> {enxuto.shape}")
+    print(f"  {list(enxuto.columns)}")
