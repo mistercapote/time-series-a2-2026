@@ -1,4 +1,3 @@
-import numpy as np
 import pandas as pd
 import src.metrics as metrics
 from statsmodels.tsa.statespace.sarimax import SARIMAX
@@ -73,7 +72,13 @@ def comparar_previsoes(modelos: dict, train_data: pd.DataFrame, datas_val: pd.Se
 
     return registros
 
-def comparar_metricas(modelos: dict, train_data: pd.DataFrame, val_data: pd.DataFrame, labels: list[str]) -> list[dict]:
+def comparar_metricas(
+    modelos: dict,
+    train_data: pd.DataFrame,
+    val_data: pd.DataFrame,
+    labels: list[str],
+    registros: list[dict] | None = None,
+) -> list[dict]:
     """
     Compara métricas entre modelos.
 
@@ -82,20 +87,29 @@ def comparar_metricas(modelos: dict, train_data: pd.DataFrame, val_data: pd.Data
         train_data (pd.DataFrame): Dados de treino.
         val_data (pd.DataFrame): Dados de validação.
         labels (list[str]): Lista com os nomes das colunas.
+        registros (list[dict] | None, optional): Previsões já geradas por
+            `comparar_previsoes`, evitando reajustar os modelos. Defaults to None.
 
     Returns:
         list[dict]: Tabela com as métricas.
     """
     resultados = []
     n_val = len(val_data)
+    df_registros = pd.DataFrame(registros) if registros is not None else None
 
     for label in labels:
         y_train = train_data[label]
         y_val = val_data[label].values
 
         for nome_modelo, func_modelo in modelos.items():
-            # Gera a previsão out-of-sample na janela de validação
-            y_pred = func_modelo(y_train, n_val)
+            if df_registros is not None:
+                filtro = (df_registros["series"] == label) & (
+                    df_registros["modelo"] == nome_modelo
+                )
+                y_pred = df_registros.loc[filtro, "yhat"].to_numpy()
+            else:
+                # Gera a previsão out-of-sample na janela de validação
+                y_pred = func_modelo(y_train, n_val)
 
             # Cálculo das métricas
             val_mae = metrics.mae(y_val, y_pred)

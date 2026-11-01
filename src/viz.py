@@ -265,12 +265,36 @@ def grafico_comparativo_metricas_por_modelo(resultados: list[dict]):
         resultados (list[dict]): Resultados com as métricas.
     """
     metricas_grafico = pd.DataFrame(resultados)
-    ordem_modelos = ["media", "naive", "naive_sazonal", "drift", "sarima"]
-    nomes_modelos = ["Média", "Naive", "Naive sazonal", "Drift", "SARIMA"]
+    ordem_preferida = [
+        "media",
+        "naive",
+        "naive_sazonal",
+        "drift",
+        "linear",
+        "sarima",
+    ]
+    modelos_presentes = set(metricas_grafico["modelo"].dropna())
+    ordem_modelos = [
+        modelo for modelo in ordem_preferida if modelo in modelos_presentes
+    ]
+    ordem_modelos.extend(
+        modelo for modelo in metricas_grafico["modelo"].dropna().unique()
+        if modelo not in ordem_modelos
+    )
+    nomes_por_modelo = {
+        "media": "Média",
+        "naive": "Naive",
+        "naive_sazonal": "Naive sazonal",
+        "drift": "Drift",
+        "linear": "Linear",
+        "sarima": "SARIMA",
+    }
+    nomes_modelos = [
+        nomes_por_modelo.get(modelo, str(modelo)) for modelo in ordem_modelos
+    ]
     series_grafico = ["store_total", "FOODS", "HOBBIES"]
-    cores = ["#94a3b8", "#94a3b8", "#94a3b8", "#94a3b8", "#16827c"]
-
-    fig, axes = plt.subplots(3, 3, figsize=(15, 10), constrained_layout=True)
+    fig, axes = plt.subplots(3, 3, figsize=(15, 10))
+    fig.subplots_adjust(top=0.79, hspace=0.5, wspace=0.35)
     for linha, serie in enumerate(series_grafico):
         dados_serie = metricas_grafico.loc[
             metricas_grafico["series"] == serie
@@ -278,6 +302,13 @@ def grafico_comparativo_metricas_por_modelo(resultados: list[dict]):
         for coluna, metrica in enumerate(["mae", "rmse", "mase"]):
             ax = axes[linha, coluna]
             valores = dados_serie[metrica].to_numpy()
+            ordem_melhores = np.argsort(valores)
+            cores = np.full(len(valores), "#94a3b8", dtype=object)
+            if len(ordem_melhores) >= 1:
+                cores[ordem_melhores[0]] = "#16827c"
+            if len(ordem_melhores) >= 2:
+                cores[ordem_melhores[1]] = "#d97706"
+
             barras = ax.barh(nomes_modelos, valores, color=cores)
             ax.invert_yaxis()
             ax.set_xlim(0, valores.max() * 1.25)
@@ -289,10 +320,43 @@ def grafico_comparativo_metricas_por_modelo(resultados: list[dict]):
             ax.spines[["top", "right"]].set_visible(False)
 
     fig.suptitle(
-        "Erros de previsão na validação de 28 dias\n"
-        "Menor é melhor • SARIMA em verde • escalas próprias em cada painel",
+        "Erros de previsão na validação de 28 dias",
         fontsize=15,
+        y=0.96,
     )
+    POSICAO_SUBTITULO = 0.875
+    legenda_subtitulo = [
+        ("Menor é melhor • ", "#475569", "normal"),
+        ("Verde", "#16827c", "bold"),
+        (" = melhor • ", "#475569", "normal"),
+        ("laranja", "#d97706", "bold"),
+        (" = segundo melhor • ", "#475569", "normal"),
+        ("cinza", "#94a3b8", "bold"),
+        (" = demais • escalas próprias em cada painel", "#475569", "normal"),
+    ]
+    textos_subtitulo = [
+        fig.text(
+            0,
+            POSICAO_SUBTITULO,
+            texto,
+            color=cor,
+            fontweight=peso,
+            fontsize=11,
+        )
+        for texto, cor, peso in legenda_subtitulo
+    ]
+    fig.canvas.draw()
+    largura_total = sum(
+        texto.get_window_extent(fig.canvas.get_renderer()).width
+        for texto in textos_subtitulo
+    )
+    largura_figura = fig.bbox.width
+    x_atual = (largura_figura - largura_total) / (2 * largura_figura)
+    for texto in textos_subtitulo:
+        texto.set_position((x_atual, POSICAO_SUBTITULO))
+        x_atual += (
+            texto.get_window_extent(fig.canvas.get_renderer()).width / largura_figura
+        )
     Path("resultados").mkdir(exist_ok=True)
     fig.savefig("resultados/comparacao_metricas.png", dpi=160, bbox_inches="tight")
     plt.show()

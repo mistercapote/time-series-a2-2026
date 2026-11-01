@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+from sklearn.linear_model import Ridge
 from statsmodels.tsa.statespace.sarimax import SARIMAX
 
 def mean(serie: pd.Series, n: int = 28) -> np.ndarray:
@@ -185,12 +186,13 @@ def prever_linear_recursivo(
     alpha: float = 10.0,
     padronizar_preco: bool = True,
     excluir: list[str] | None = None,
-    **kwargs,
 ) -> np.ndarray:
-    """Previsão linear recursiva.
+    """Previsão linear recursiva com um único modelo Ridge.
 
-    Definição: treina o modelo para, dado os dados de um dia, prever qual o Y do próximo,
-    incluindo o Y do anterior. Pega o último dado conhecido e passa pro modelo.
+    Treina um único modelo que recebe as covariáveis do dia previsto e o alvo
+    do dia imediatamente anterior (`y_anterior`). Na previsão, o primeiro passo
+    usa o último valor observado no treino e os passos seguintes realimentam a
+    própria previsão do passo anterior.
 
     Args:
         serie (str | pd.Series): Nome da série ou série com histórico.
@@ -205,9 +207,8 @@ def prever_linear_recursivo(
     Returns:
         np.ndarray: Previsões geradas recursivamente.
     """
-    from sklearn.linear_model import Ridge
 
-    serie_nome, X_tr, y_tr, X_pr = _obter_dados_serie(
+    _, X_tr, y_tr, X_pr = _obter_dados_serie(
         serie=serie,
         n=n,
         X_treino=X_treino,
@@ -223,16 +224,16 @@ def prever_linear_recursivo(
     X_tr_rec["y_anterior"] = y_tr.iloc[:-1].values
     y_tr_rec = y_tr.iloc[1:].values
 
-    reg = Ridge(alpha=alpha).fit(X_tr_rec, y_tr_rec)
+    # Ajusta o modelo uma única vez antes do loop recursivo
+    modelo = Ridge(alpha=alpha).fit(X_tr_rec, y_tr_rec)
 
-    # Loop recursivo: pega o último dado conhecido e passa pro modelo
     preds = []
     ultimo_y = float(y_tr.iloc[-1])
 
     for step in range(len(X_pr)):
         row = X_pr.iloc[step : step + 1].copy()
         row["y_anterior"] = ultimo_y
-        y_hat = float(reg.predict(row)[0])
+        y_hat = float(modelo.predict(row)[0])
         preds.append(y_hat)
         ultimo_y = y_hat
 
@@ -248,12 +249,13 @@ def prever_linear_direto(
     alpha: float = 10.0,
     padronizar_preco: bool = True,
     excluir: list[str] | None = None,
-    **kwargs,
 ) -> np.ndarray:
-    """Previsão linear direta com retreino contínuo.
+    """Previsão linear direta com um modelo independente por horizonte.
 
-    Definição: treina o modelo para, dado todos seus dados, prever qual o próximo,
-    daí pega esses todos novos dados para prever o Yt+1, daí repete várias vezes.
+    Para cada horizonte ``h``, ajusta um modelo independente usando as
+    covariáveis do próprio dia previsto ``X_{t+h}`` e o último valor conhecido
+    na origem ``y_t`` para prever ``y_{t+h}``. Na previsão do horizonte ``h``,
+    utiliza ``X_{T+h}`` e ``y_T`` (conhecido em 2016-03-27).
 
     Args:
         serie (str | pd.Series): Nome da série ou série com histórico.
@@ -266,9 +268,9 @@ def prever_linear_direto(
         excluir (list[str] | None): Colunas adicionais a descartar.
 
     Returns:
-        np.ndarray: Previsões geradas passo a passo com retreino.
+        np.ndarray: Previsões para todo o horizonte.
     """
-    serie_nome, X_tr, y_tr, X_pr = _obter_dados_serie(
+    _, X_tr, y_tr, X_pr = _obter_dados_serie(
         serie=serie,
         n=n,
         X_treino=X_treino,
@@ -278,18 +280,34 @@ def prever_linear_direto(
         padronizar_preco=padronizar_preco,
     )
 
-    curr_X = X_tr.copy()
-    curr_y = list(y_tr.values)
-    preds = []
+    ultimo_y_origem = float(y_tr.iloc[-1])
+    previsoes = []
+    for horizonte in range(1, len(X_pr) + 1):
+        n_amostras = len(X_tr) - horizonte
+        if n_amostras < 1:
+            raise ValueError(
+                "O treino precisa conter mais observações que o horizonte."
+            )
 
-    for step in range(len(X_pr)):
-        next_row = X_pr.iloc[step : step + 1]
-        y_hat = float(base_previsao_linear(curr_X, curr_y, next_row, alpha=alpha)[0])
-        preds.append(y_hat)
-        curr_X = pd.concat([curr_X, next_row], ignore_index=True)
-        curr_y.append(y_hat)
+        X_horizonte = X_tr.iloc[horizonte : horizonte + n_amostras].copy()
+        X_horizonte["y_origem"] = y_tr.iloc[:n_amostras].values
+        y_horizonte = y_tr.iloc[horizonte : horizonte + n_amostras].values
 
-    return np.array(preds)
+        X_pred_h = X_pr.iloc[horizonte - 1 : horizonte].copy()
+        X_pred_h["y_origem"] = ultimo_y_origem
+
+        previsoes.append(
+            float(
+                base_previsao_linear(
+                    X_horizonte,
+                    y_horizonte,
+                    X_pred_h,
+                    alpha=alpha,
+                )[0]
+            )
+        )
+
+    return np.asarray(previsoes)
 
 
 def linear(
@@ -316,3 +334,58 @@ def linear(
     else:
         raise ValueError(f"Estratégia inválida: '{estrategia}'. Use 'direta' ou 'recursiva'.")
 
+
+def prever_linear_com_covariaveis(
+    serie: pd.Series,
+    n: int,
+    tabela_treino: pd.DataFrame,
+    tabela_validacao: pd.DataFrame,
+    estrategia: str = "direta",
+) -> np.ndarray:
+    """Gera previsões lineares usando as covariáveis de uma série."""
+    import src.features as features
+
+    nome_serie = str(serie.name)
+    X_treino, y_treino = features.separar_X_y(
+        nome_serie, periodo="treino", tabela=tabela_treino
+    )
+    X_pred, _ = features.separar_X_y(
+        nome_serie, periodo="validacao", tabela=tabela_validacao
+    )
+
+    return linear(
+        nome_serie,
+        n=n,
+        X_treino=X_treino,
+        y_treino=y_treino,
+        X_pred=X_pred,
+        estrategia=estrategia,
+    )
+
+
+def construir_modelos(
+    tabela_treino: pd.DataFrame,
+    tabela_validacao: pd.DataFrame,
+    sarima_dict: dict,
+    estrategia_linear: str = "direta",
+) -> dict:
+    """Monta o dicionário de modelos usado na reprodução das previsões."""
+    return {
+        "media": lambda s, n: mean(s, n=n),
+        "naive": lambda s, n: naive(s, n=n),
+        "naive_sazonal": lambda s, n: naive_sazonal(s, m=7, n=n),
+        "drift": lambda s, n: drift(s, n=n),
+        "linear": lambda s, n: prever_linear_com_covariaveis(
+            s,
+            n,
+            tabela_treino,
+            tabela_validacao,
+            estrategia=estrategia_linear,
+        ),
+        "sarima": lambda s, n: sarima(
+            s,
+            order=sarima_dict[s.name][0],
+            seasonal_order=sarima_dict[s.name][1],
+            n=n,
+        ),
+    }
