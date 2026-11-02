@@ -1,10 +1,10 @@
-# Task 1 — Diagnóstico, Baselines e Modelagem SARIMA
+# Task 2 — Diagnóstico, Baselines e Modelagem SARIMA
 
 **Grupo:** Isaías Gouvéa Gonçalves, Henrique Coelho Beltrão, Henrique Gabriel Gasparelo, José Thevez Gomes Guedes, Luiz Eduardo Bravin
 
 ---
 
-Este repositório contém a entrega da **Task 1** (25% da avaliação A2) da disciplina de Séries Temporais. O projeto contempla análise exploratória e diagnóstica, implementação de quatro modelos *baseline* em horizonte de 28 dias e a geração automatizada das previsões e métricas de desempenho para três séries temporais diárias da loja Walmart (`store_total`, `FOODS` e `HOBBIES`).
+Este repositório contém a entrega da **Task 1 + Task 2** da disciplina de Séries Temporais. O projeto contempla análise exploratória e diagnóstica, implementação de quatro modelos *baseline* em horizonte de 28 dias e a geração automatizada das previsões e métricas de desempenho para três séries temporais diárias da loja Walmart (`store_total`, `FOODS` e `HOBBIES`).
 
 ---
 
@@ -38,4 +38,5 @@ Para rodar os testes parciais de conformidade fornecidos, execute a partir da ra
 
 ```bash
 python checks/check_task1.py --submission .
+python checks/check_task2.py --submission . --ate linear
 ```
