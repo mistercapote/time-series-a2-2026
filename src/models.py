@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+import src.features as features
 from sklearn.linear_model import Ridge
 from statsmodels.tsa.statespace.sarimax import SARIMAX
 
@@ -119,8 +120,6 @@ def base_previsao_linear(
     Returns:
         np.ndarray: Previsões lineares correspondentes a X_pred.
     """
-    from sklearn.linear_model import Ridge
-
     reg = Ridge(alpha=alpha).fit(X_train, y_train)
     return reg.predict(X_pred)
 
@@ -137,8 +136,6 @@ def _obter_dados_serie(
     padronizar_preco: bool = True,
 ) -> tuple[str, pd.DataFrame, pd.Series, pd.DataFrame]:
     """Prepara matrizes X e y a partir de src.features para uma dada série."""
-    import src.features as features
-
     if isinstance(serie, str):
         serie_nome = serie
     elif hasattr(serie, "name") and serie.name:
@@ -343,8 +340,6 @@ def prever_linear_com_covariaveis(
     estrategia: str = "direta",
 ) -> np.ndarray:
     """Gera previsões lineares usando as covariáveis de uma série."""
-    import src.features as features
-
     nome_serie = str(serie.name)
     X_treino, y_treino = features.separar_X_y(
         nome_serie, periodo="treino", tabela=tabela_treino
