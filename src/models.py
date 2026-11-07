@@ -72,7 +72,14 @@ def drift(serie: pd.Series, n: int = 28) -> np.ndarray:
     h =  np.arange(1, n + 1)
     return y_T + h * C
 
-def sarima(serie: pd.Series, order: tuple[int], seasonal_order: tuple[int], n: int = 28, resid: bool = False) -> np.ndarray:
+def sarima(
+    serie: pd.Series,
+    order: tuple[int],
+    seasonal_order: tuple[int],
+    n: int = 28,
+    resid: bool = False,
+    maxiter: int = 200,
+) -> np.ndarray:
     """
     Calcula a previsão usando o método SARIMA(p,d,q)(P,D,Q)m
 
@@ -82,6 +89,7 @@ def sarima(serie: pd.Series, order: tuple[int], seasonal_order: tuple[int], n: i
         seasonal_order (tuple[int]): Parâmetros (P,D,Q)m
         n (int, optional): Número de períodos futuros a serem previstos. Defaults to 28.
         resid (bool, optional): Retorna os resíduos. Defaults to False.
+        maxiter (int, optional): Número máximo de iterações da otimização. Defaults to 200.
 
     Returns:
         np.ndarray: Previsões para os períodos futuros.
@@ -89,12 +97,10 @@ def sarima(serie: pd.Series, order: tuple[int], seasonal_order: tuple[int], n: i
     model = SARIMAX(
                     serie,
                     order=order,
-                    seasonal_order=seasonal_order,
-                    enforce_stationarity=False,
-                    enforce_invertibility=False
+                    seasonal_order=seasonal_order
                     )
 
-    result = model.fit(disp=False)
+    result = model.fit(disp=False, maxiter=maxiter)
     prediction = result.get_forecast(steps=n)
 
     if resid:

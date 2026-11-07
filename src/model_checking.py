@@ -2,7 +2,13 @@ import pandas as pd
 import src.metrics as metrics
 from statsmodels.tsa.statespace.sarimax import SARIMAX
 
-def comparar_sarima(modelos: list[tuple[tuple, tuple]], train_data: pd.DataFrame, val_data: pd.DataFrame, labels: list[str]) -> pd.DataFrame:
+def comparar_sarima(
+    modelos: list[tuple[tuple, tuple]],
+    train_data: pd.DataFrame,
+    val_data: pd.DataFrame,
+    labels: list[str],
+    maxiter: int = 200,
+) -> pd.DataFrame:
     """
     Compara AIC, BIC e métricas de erro para modelos diferentes do SARIMA.
 
@@ -11,6 +17,7 @@ def comparar_sarima(modelos: list[tuple[tuple, tuple]], train_data: pd.DataFrame
         train_data (pd.DataFrame): Dados de treino.
         val_data (pd.DataFrame): Dados de validação.
         labels (list[str]): Lista com os nomes das colunas.
+        maxiter (int, optional): Número máximo de iterações da otimização. Defaults to 200.
 
     Returns:
         pd.DataFrame: Tabela com as métricas calculadas.
@@ -23,7 +30,7 @@ def comparar_sarima(modelos: list[tuple[tuple, tuple]], train_data: pd.DataFrame
         
         for order, s_order in modelos:
             mod = SARIMAX(y_tr, order=order, seasonal_order=s_order, enforce_stationarity=False, enforce_invertibility=False)
-            fit = mod.fit(disp=False)
+            fit = mod.fit(disp=False, maxiter=maxiter)
             pred = fit.get_forecast(steps=n_v).predicted_mean.values
             
             resultados_grid.append({
