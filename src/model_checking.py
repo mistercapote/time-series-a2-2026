@@ -26,18 +26,11 @@ def comparar_sarima(modelos: list[tuple[tuple, tuple]], train_data: pd.DataFrame
             fit = mod.fit(disp=False)
             pred = fit.get_forecast(steps=n_v).predicted_mean.values
             
-            mae_v = metrics.mae(y_v, pred)
-            rmse_v = metrics.rmse(y_v, pred)
-            mase_v = metrics.mase(y_tr, y_v, pred)
-            
             resultados_grid.append({
                 "Série": label,
                 "Ordem SARIMA": f"{order} x {s_order}",
                 "AIC": round(fit.aic, 1),
-                "BIC": round(fit.bic, 1),
-                "MAE Validação": round(mae_v, 2),
-                "RMSE Validação": round(rmse_v, 2),
-                "MASE Validação": round(mase_v, 4),
+                "BIC": round(fit.bic, 1)
             })
 
     return pd.DataFrame(resultados_grid)
