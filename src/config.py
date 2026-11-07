@@ -21,3 +21,10 @@ SARIMA_DICT = {
     "FOODS": ((1, 1, 1), (0, 1, 1, 7)),
     "HOBBIES": ((0, 1, 2), (0, 1, 1, 7)),
 }
+
+# Configurações (tipo, alpha, estrategia) selecionadas na validação interna (até 2016-03-27)
+LINEAR_DICT = {
+    "store_total": ("lasso", 25.0, "recursiva"),
+    "FOODS": ("lasso", 50.0, "recursiva"),
+    "HOBBIES": ("ridge", 500.0, "recursiva"),
+}

@@ -2,7 +2,9 @@ import numpy as np
 import pandas as pd
 import src.features as features
 from sklearn.base import clone
-from sklearn.linear_model import Ridge
+from sklearn.linear_model import Lasso, LinearRegression, Ridge
+from sklearn.pipeline import make_pipeline
+from sklearn.preprocessing import StandardScaler
 from statsmodels.tsa.statespace.sarimax import SARIMAX
 
 
@@ -244,22 +246,36 @@ def prever_modelo(
     raise ValueError(f"Estratégia inválida: '{estrategia}'. Use 'direta' ou 'recursiva'.")
 
 
+def criar_modelo_linear(tipo: str = "ridge", alpha: float | None = 10.0) -> object:
+    """Cria o estimador linear ('padrao', 'ridge' ou 'lasso') com normalização no Ridge/Lasso."""
+    tipo = tipo.lower()
+    if tipo in ("padrao", "ols", "linear"):
+        return LinearRegression()
+    if tipo == "ridge":
+        return make_pipeline(StandardScaler(), Ridge(alpha=float(alpha)))
+    if tipo == "lasso":
+        return make_pipeline(StandardScaler(), Lasso(alpha=float(alpha), max_iter=10000))
+    raise ValueError(f"Tipo linear inválido: '{tipo}'. Use 'padrao', 'ridge' ou 'lasso'.")
+
+
 def linear(
     serie: str | pd.Series,
     n: int = 28,
     tabela_treino: pd.DataFrame | None = None,
     tabela_validacao: pd.DataFrame | None = None,
+    tipo: str = "ridge",
+    alpha: float | None = 10.0,
     estrategia: str = "direta",
-    alpha: float = 10.0,
     **kwargs,
 ) -> np.ndarray:
-    """Modelo linear com Ridge(alpha=alpha) usando o fluxo genérico direto ou recursivo."""
+    """Modelo linear ('padrao', 'ridge' ou 'lasso') usando o fluxo genérico direto ou recursivo."""
+    estimador = criar_modelo_linear(tipo=tipo, alpha=alpha)
     return prever_modelo(
         serie=serie,
         n=n,
         tabela_treino=tabela_treino,
         tabela_validacao=tabela_validacao,
-        modelo=Ridge(alpha=alpha),
+        modelo=estimador,
         estrategia=estrategia,
         **kwargs,
     )
@@ -269,17 +285,23 @@ def construir_modelos(
     tabela_treino: pd.DataFrame,
     tabela_validacao: pd.DataFrame,
     sarima_dict: dict,
-    modelos_covariaveis: dict[str, tuple[object, str]] | None = None,
+    linear_dict: dict[str, tuple[str, float | None, str]],
 ) -> dict:
     """Monta o dicionário de modelos usado na reprodução das previsões."""
-    if modelos_covariaveis is None:
-        modelos_covariaveis = {"linear": (Ridge(alpha=10.0), "recursiva")}
-
-    dicionario = {
+    return {
         "media": lambda s, n: mean(s, n=n),
         "naive": lambda s, n: naive(s, n=n),
         "naive_sazonal": lambda s, n: naive_sazonal(s, m=7, n=n),
         "drift": lambda s, n: drift(s, n=n),
+        "linear": lambda s, n: linear(
+            s,
+            n,
+            tabela_treino,
+            tabela_validacao,
+            tipo=linear_dict[s.name][0],
+            alpha=linear_dict[s.name][1],
+            estrategia=linear_dict[s.name][2],
+        ),
         "sarima": lambda s, n: sarima(
             s,
             order=sarima_dict[s.name][0],
@@ -287,12 +309,3 @@ def construir_modelos(
             n=n,
         ),
     }
-
-    for nome, (estimador, estrategia) in modelos_covariaveis.items():
-        dicionario[nome] = (
-            lambda s, n, est=estimador, estr=estrategia: prever_modelo(
-                s, n, tabela_treino, tabela_validacao, modelo=est, estrategia=estr
-            )
-        )
-
-    return dicionario

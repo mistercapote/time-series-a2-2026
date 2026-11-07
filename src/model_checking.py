@@ -1,5 +1,6 @@
 import pandas as pd
 import src.metrics as metrics
+import src.models as models
 from statsmodels.tsa.statespace.sarimax import SARIMAX
 
 def comparar_sarima(
@@ -125,3 +126,56 @@ def comparar_metricas(
             })
 
     return resultados
+
+
+def selecionar_linear(
+    tabela_treino: pd.DataFrame,
+    labels: list[str],
+    alphas: tuple[float, ...] = (1.0, 5.0, 10.0, 25.0, 50.0, 100.0, 500.0),
+    n_val_interna: int = 28,
+) -> tuple[pd.DataFrame, dict[str, tuple[str, float | None, str]]]:
+    """Seleciona tipo ('padrao', 'ridge', 'lasso'), alpha e estratégia na validação interna (até 2016-03-27)."""
+    tab_tr_int = tabela_treino.iloc[:-n_val_interna].reset_index(drop=True)
+    tab_val_int = tabela_treino.iloc[-n_val_interna:].reset_index(drop=True)
+
+    candidatos = [("padrao", None)]
+    for tipo in ("ridge", "lasso"):
+        for a in alphas:
+            candidatos.append((tipo, float(a)))
+
+    linhas = []
+    for label in labels:
+        y_tr_int = tab_tr_int[label]
+        y_val_int = tab_val_int[label].values
+        for estrategia in ("direta", "recursiva"):
+            for tipo, alpha in candidatos:
+                y_pred = models.linear(
+                    label,
+                    n=n_val_interna,
+                    tabela_treino=tab_tr_int,
+                    tabela_validacao=tab_val_int,
+                    tipo=tipo,
+                    alpha=alpha,
+                    estrategia=estrategia,
+                )
+                linhas.append({
+                    "series": label,
+                    "tipo": tipo,
+                    "alpha": alpha,
+                    "estrategia": estrategia,
+                    "mae": metrics.mae(y_val_int, y_pred),
+                    "rmse": metrics.rmse(y_val_int, y_pred),
+                    "mase": metrics.mase(y_tr_int, y_val_int, y_pred, m=7),
+                })
+
+    df_busca = pd.DataFrame(linhas)
+    melhores = df_busca.sort_values("mase").groupby("series", as_index=False).first()
+    linear_dict = {
+        row["series"]: (
+            row["tipo"],
+            None if pd.isna(row["alpha"]) else float(row["alpha"]),
+            row["estrategia"],
+        )
+        for _, row in melhores.iterrows()
+    }
+    return df_busca, linear_dict

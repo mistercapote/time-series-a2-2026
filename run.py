@@ -16,9 +16,7 @@ DATA_INICIO_VAL = config.DATA_INICIO_VAL
 DATA_FIM_VAL = config.DATA_FIM_VAL
 
 SARIMA_DICT = config.SARIMA_DICT
-MODELOS_COVARIAVEIS = {
-    "linear": (models.Ridge(alpha=10.0), "recursiva"),
-}
+LINEAR_DICT = config.LINEAR_DICT
 
 def main():
     train_data = data.carregar_dados(caminho=str(CAMINHO_TRAIN), data_fim=DATA_FIM_TRAIN)
@@ -29,7 +27,7 @@ def main():
         tabela_treino,
         tabela_validacao,
         SARIMA_DICT,
-        modelos_covariaveis=MODELOS_COVARIAVEIS,
+        LINEAR_DICT,
     )
 
     registros = model_checking.comparar_previsoes(modelos, train_data, val_data["date"], labels)
