@@ -206,6 +206,9 @@ def prever_direto(
     previsoes = []
     for horizonte in range(1, len(X_pr) + 1):
         n_amostras = len(X_tr) - horizonte
+        if n_amostras < 1:
+            raise ValueError("O treino precisa conter mais observações que o horizonte.")
+
         X_horizonte = X_tr.iloc[horizonte : horizonte + n_amostras].copy()
         X_horizonte["y_origem"] = y_tr.iloc[:n_amostras].values
         y_horizonte = y_tr.iloc[horizonte : horizonte + n_amostras].values
@@ -222,10 +225,10 @@ def prever_direto(
 
 def prever_modelo(
     serie: str | pd.Series,
-    n: int,
-    tabela_treino: pd.DataFrame,
-    tabela_validacao: pd.DataFrame,
-    modelo: object,
+    n: int = 28,
+    tabela_treino: pd.DataFrame | None = None,
+    tabela_validacao: pd.DataFrame | None = None,
+    modelo: object = None,
     estrategia: str = "direta",
     **kwargs,
 ) -> np.ndarray:
@@ -239,6 +242,27 @@ def prever_modelo(
             serie, modelo, n=n, tabela_treino=tabela_treino, tabela_validacao=tabela_validacao, **kwargs
         )
     raise ValueError(f"Estratégia inválida: '{estrategia}'. Use 'direta' ou 'recursiva'.")
+
+
+def linear(
+    serie: str | pd.Series,
+    n: int = 28,
+    tabela_treino: pd.DataFrame | None = None,
+    tabela_validacao: pd.DataFrame | None = None,
+    estrategia: str = "direta",
+    alpha: float = 10.0,
+    **kwargs,
+) -> np.ndarray:
+    """Modelo linear com Ridge(alpha=alpha) usando o fluxo genérico direto ou recursivo."""
+    return prever_modelo(
+        serie=serie,
+        n=n,
+        tabela_treino=tabela_treino,
+        tabela_validacao=tabela_validacao,
+        modelo=Ridge(alpha=alpha),
+        estrategia=estrategia,
+        **kwargs,
+    )
 
 
 def construir_modelos(
