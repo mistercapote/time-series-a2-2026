@@ -1,3 +1,4 @@
+import warnings
 import numpy as np
 import pandas as pd
 import src.features as features
@@ -5,6 +6,7 @@ from sklearn.base import clone
 from sklearn.linear_model import Lasso, LinearRegression, Ridge
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
+from statsmodels.tools.sm_exceptions import EstimationWarning
 from statsmodels.tsa.statespace.sarimax import SARIMAX
 
 
@@ -84,7 +86,7 @@ def sarima(
     n: int = 28,
     resid: bool = False,
     maxiter: int = 200,
-) -> np.ndarray:
+) -> np.ndarray | pd.Series:
     """
     Calcula a previsão usando o método SARIMA(p,d,q)(P,D,Q)m
 
@@ -97,20 +99,20 @@ def sarima(
         maxiter (int, optional): Número máximo de iterações da otimização. Defaults to 200.
 
     Returns:
-        np.ndarray: Previsões para os períodos futuros.
+        np.ndarray | pd.Series: Previsões para os períodos futuros ou série de resíduos.
     """
     model = SARIMAX(
-                    serie,
-                    order=order,
-                    seasonal_order=seasonal_order
-                    )
+        serie,
+        order=order,
+        seasonal_order=seasonal_order,
+    )
 
     result = model.fit(disp=False, maxiter=maxiter)
-    prediction = result.get_forecast(steps=n)
-
     if resid:
-        return result.resid
+        burn_in = result.loglikelihood_burn
+        return result.resid.iloc[burn_in:]
 
+    prediction = result.get_forecast(steps=n)
     return prediction.predicted_mean
 
 
@@ -153,6 +155,47 @@ def _obter_dados_serie(
         y_treino = (y_treino - y_mean) / y_std
 
     return X_treino, y_treino, X_pred, y_mean, y_std
+
+
+def sarimax(
+    serie: str | pd.Series,
+    order: tuple[int],
+    seasonal_order: tuple[int],
+    n: int = 28,
+    tabela_treino: pd.DataFrame | None = None,
+    tabela_validacao: pd.DataFrame | None = None,
+    excluir: list[str] | None = None,
+    resid: bool = False,
+    maxiter: int = 500,
+) -> np.ndarray | pd.Series:
+    """Calcula a previsão (ou resíduos) usando SARIMAX(p,d,q)(P,D,Q)m com as covariáveis da série."""
+    X_tr, y_tr, X_pr, _, _ = _obter_dados_serie(
+        serie, n, tabela_treino, tabela_validacao, excluir=excluir
+    )
+    scaler = StandardScaler()
+    X_tr_norm = pd.DataFrame(
+        scaler.fit_transform(X_tr), columns=X_tr.columns, index=X_tr.index
+    )
+
+    model = SARIMAX(
+        y_tr,
+        exog=X_tr_norm,
+        order=order,
+        seasonal_order=seasonal_order,
+        mle_regression=False,
+    )
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", EstimationWarning)
+        result = model.fit(disp=False, maxiter=maxiter, method="powell")
+
+    if resid:
+        burn_in = result.loglikelihood_burn
+        return result.resid.iloc[burn_in:]
+
+    X_pr_norm = pd.DataFrame(
+        scaler.transform(X_pr), columns=X_pr.columns, index=X_pr.index
+    )
+    return result.get_forecast(steps=n, exog=X_pr_norm).predicted_mean.to_numpy()
 
 
 def prever_recursivo(
@@ -286,13 +329,31 @@ def construir_modelos(
     tabela_validacao: pd.DataFrame,
     sarima_dict: dict,
     linear_dict: dict[str, tuple[str, float | None, str]],
+    sarimax_dict: dict | None = None,
 ) -> dict:
     """Monta o dicionário de modelos usado na reprodução das previsões."""
+    if sarimax_dict is None:
+        sarimax_dict = sarima_dict
+
     return {
         "media": lambda s, n: mean(s, n=n),
         "naive": lambda s, n: naive(s, n=n),
         "naive_sazonal": lambda s, n: naive_sazonal(s, m=7, n=n),
         "drift": lambda s, n: drift(s, n=n),
+        "sarima": lambda s, n: sarima(
+            s,
+            order=sarima_dict[s.name][0],
+            seasonal_order=sarima_dict[s.name][1],
+            n=n,
+        ),
+        "sarimax": lambda s, n: sarimax(
+            s,
+            order=sarimax_dict[s.name][0],
+            seasonal_order=sarimax_dict[s.name][1],
+            n=n,
+            tabela_treino=tabela_treino,
+            tabela_validacao=tabela_validacao,
+        ),
         "linear": lambda s, n: linear(
             s,
             n,
@@ -301,11 +362,5 @@ def construir_modelos(
             tipo=linear_dict[s.name][0],
             alpha=linear_dict[s.name][1],
             estrategia=linear_dict[s.name][2],
-        ),
-        "sarima": lambda s, n: sarima(
-            s,
-            order=sarima_dict[s.name][0],
-            seasonal_order=sarima_dict[s.name][1],
-            n=n,
         ),
     }

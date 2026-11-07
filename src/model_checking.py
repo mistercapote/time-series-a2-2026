@@ -1,44 +1,81 @@
+import warnings
 import pandas as pd
 import src.metrics as metrics
 import src.models as models
+from sklearn.preprocessing import StandardScaler
+from statsmodels.tools.sm_exceptions import EstimationWarning
 from statsmodels.tsa.statespace.sarimax import SARIMAX
 
 def comparar_sarima(
     modelos: list[tuple[tuple, tuple]],
     train_data: pd.DataFrame,
-    val_data: pd.DataFrame,
-    labels: list[str],
+    val_data: pd.DataFrame | None = None,
+    labels: list[str] | None = None,
     maxiter: int = 200,
 ) -> pd.DataFrame:
     """
-    Compara AIC, BIC e métricas de erro para modelos diferentes do SARIMA.
+    Compara AIC e BIC no conjunto de treino para ordens candidatas do SARIMA.
 
     Args:
         modelos (list[tuple[tuple, tuple]]): Lista com os parâmetros de cada modelo.
         train_data (pd.DataFrame): Dados de treino.
-        val_data (pd.DataFrame): Dados de validação.
-        labels (list[str]): Lista com os nomes das colunas.
+        val_data (pd.DataFrame | None, optional): Mantido apenas por compatibilidade.
+        labels (list[str] | None): Lista com os nomes das colunas.
         maxiter (int, optional): Número máximo de iterações da otimização. Defaults to 200.
 
     Returns:
-        pd.DataFrame: Tabela com as métricas calculadas.
+        pd.DataFrame: Tabela com AIC e BIC calculados no treino.
     """
     resultados_grid = []
     for label in labels:
         y_tr = train_data[label]
-        y_v = val_data[label].values
-        n_v = len(y_v)
-        
+
         for order, s_order in modelos:
-            mod = SARIMAX(y_tr, order=order, seasonal_order=s_order, enforce_stationarity=False, enforce_invertibility=False)
+            mod = SARIMAX(y_tr, order=order, seasonal_order=s_order)
             fit = mod.fit(disp=False, maxiter=maxiter)
-            pred = fit.get_forecast(steps=n_v).predicted_mean.values
-            
+
             resultados_grid.append({
                 "Série": label,
                 "Ordem SARIMA": f"{order} x {s_order}",
                 "AIC": round(fit.aic, 1),
-                "BIC": round(fit.bic, 1)
+                "BIC": round(fit.bic, 1),
+            })
+
+    return pd.DataFrame(resultados_grid)
+
+
+def comparar_sarimax(
+    modelos: list[tuple[tuple, tuple]],
+    tabela_treino: pd.DataFrame,
+    labels: list[str],
+    maxiter: int = 500,
+) -> pd.DataFrame:
+    """Compara AIC e BIC entre ordens candidatas do SARIMAX com covariáveis em cada série."""
+    resultados_grid = []
+    for label in labels:
+        X_tr, y_tr, _, _, _ = models._obter_dados_serie(
+            label, tabela_treino=tabela_treino, tabela_validacao=tabela_treino.iloc[-28:]
+        )
+        scaler = StandardScaler()
+        X_tr_norm = pd.DataFrame(
+            scaler.fit_transform(X_tr), columns=X_tr.columns, index=X_tr.index
+        )
+        for order, s_order in modelos:
+            mod = SARIMAX(
+                y_tr,
+                exog=X_tr_norm,
+                order=order,
+                seasonal_order=s_order,
+                mle_regression=False,
+            )
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore", EstimationWarning)
+                fit = mod.fit(disp=False, maxiter=maxiter, method="powell")
+            resultados_grid.append({
+                "Série": label,
+                "Ordem SARIMAX": f"{order} x {s_order}",
+                "AIC": round(fit.aic, 1),
+                "BIC": round(fit.bic, 1),
             })
 
     return pd.DataFrame(resultados_grid)

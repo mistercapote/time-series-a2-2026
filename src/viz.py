@@ -270,8 +270,9 @@ def grafico_comparativo_metricas_por_modelo(resultados: list[dict]):
         "naive",
         "naive_sazonal",
         "drift",
-        "linear",
         "sarima",
+        "sarimax",
+        "linear",
     ]
     modelos_presentes = set(metricas_grafico["modelo"].dropna())
     ordem_modelos = [
@@ -286,8 +287,9 @@ def grafico_comparativo_metricas_por_modelo(resultados: list[dict]):
         "naive": "Naive",
         "naive_sazonal": "Naive sazonal",
         "drift": "Drift",
-        "linear": "Linear",
         "sarima": "SARIMA",
+        "sarimax": "SARIMAX",
+        "linear": "Linear",
     }
     nomes_modelos = [
         nomes_por_modelo.get(modelo, str(modelo)) for modelo in ordem_modelos

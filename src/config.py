@@ -17,9 +17,15 @@ DATA_FIM_VAL = "2016-04-24"
 SERIES = ["store_total", "FOODS", "HOBBIES"]
 
 SARIMA_DICT = {
-    "store_total": ((1, 1, 1), (0, 1, 1, 7)),
+    "store_total": ((0, 1, 2), (0, 1, 1, 7)),
     "FOODS": ((1, 1, 1), (0, 1, 1, 7)),
-    "HOBBIES": ((0, 1, 2), (0, 1, 1, 7)),
+    "HOBBIES": ((1, 1, 1), (0, 1, 1, 7)),
+}
+
+SARIMAX_DICT = {
+    "store_total": ((0, 1, 2), (0, 1, 1, 7)),
+    "FOODS": ((1, 1, 1), (0, 1, 1, 7)),
+    "HOBBIES": ((1, 1, 1), (0, 1, 1, 7)),
 }
 
 # Configurações (tipo, alpha, estrategia) selecionadas na validação interna (até 2016-03-27)

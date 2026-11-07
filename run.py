@@ -16,6 +16,7 @@ DATA_INICIO_VAL = config.DATA_INICIO_VAL
 DATA_FIM_VAL = config.DATA_FIM_VAL
 
 SARIMA_DICT = config.SARIMA_DICT
+SARIMAX_DICT = config.SARIMAX_DICT
 LINEAR_DICT = config.LINEAR_DICT
 
 def main():
@@ -28,6 +29,7 @@ def main():
         tabela_validacao,
         SARIMA_DICT,
         LINEAR_DICT,
+        SARIMAX_DICT,
     )
 
     registros = model_checking.comparar_previsoes(modelos, train_data, val_data["date"], labels)
