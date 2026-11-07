@@ -165,40 +165,65 @@ def comparar_metricas(
     return resultados
 
 
-def selecionar_linear(
+def comparar_estrategias(
+    candidatos: dict[str, object] | object,
     tabela_treino: pd.DataFrame,
     labels: list[str],
-    alphas: tuple[float, ...] = (1.0, 5.0, 10.0, 25.0, 50.0, 100.0, 500.0),
     n_val_interna: int = 28,
-) -> tuple[pd.DataFrame, dict[str, tuple[str, float | None, str]]]:
-    """Seleciona tipo ('padrao', 'ridge', 'lasso'), alpha e estratégia na validação interna (até 2016-03-27)."""
+    incluir_referencias: bool = False,
+    sarima_dict: dict | None = None,
+    **kwargs,
+) -> tuple[pd.DataFrame, dict[str, tuple[str, str]]]:
+    """Compara as estratégias 'direta' e 'recursiva' para qualquer modelo na validação interna (até 2016-03-27)."""
+    if not isinstance(candidatos, dict):
+        candidatos = {candidatos.__class__.__name__.lower(): candidatos}
+
     tab_tr_int = tabela_treino.iloc[:-n_val_interna].reset_index(drop=True)
     tab_val_int = tabela_treino.iloc[-n_val_interna:].reset_index(drop=True)
-
-    candidatos = [("padrao", None)]
-    for tipo in ("ridge", "lasso"):
-        for a in alphas:
-            candidatos.append((tipo, float(a)))
 
     linhas = []
     for label in labels:
         y_tr_int = tab_tr_int[label]
         y_val_int = tab_val_int[label].values
+
+        if incluir_referencias:
+            refs = {
+                "media": models.mean(y_tr_int, n=n_val_interna),
+                "naive": models.naive(y_tr_int, n=n_val_interna),
+                "naive_sazonal": models.naive_sazonal(y_tr_int, m=7, n=n_val_interna),
+                "drift": models.drift(y_tr_int, n=n_val_interna),
+            }
+            if sarima_dict is not None and label in sarima_dict:
+                refs["sarima"] = models.sarima(
+                    y_tr_int,
+                    order=sarima_dict[label][0],
+                    seasonal_order=sarima_dict[label][1],
+                    n=n_val_interna,
+                )
+            for nome_ref, y_pred_ref in refs.items():
+                linhas.append({
+                    "series": label,
+                    "candidato": nome_ref,
+                    "estrategia": "referencia",
+                    "mae": metrics.mae(y_val_int, y_pred_ref),
+                    "rmse": metrics.rmse(y_val_int, y_pred_ref),
+                    "mase": metrics.mase(y_tr_int, y_val_int, y_pred_ref, m=7),
+                })
+
         for estrategia in ("direta", "recursiva"):
-            for tipo, alpha in candidatos:
-                y_pred = models.linear(
+            for nome_cand, estimador in candidatos.items():
+                y_pred = models.prever_modelo(
                     label,
                     n=n_val_interna,
                     tabela_treino=tab_tr_int,
                     tabela_validacao=tab_val_int,
-                    tipo=tipo,
-                    alpha=alpha,
+                    modelo=estimador,
                     estrategia=estrategia,
+                    **kwargs,
                 )
                 linhas.append({
                     "series": label,
-                    "tipo": tipo,
-                    "alpha": alpha,
+                    "candidato": nome_cand,
                     "estrategia": estrategia,
                     "mae": metrics.mae(y_val_int, y_pred),
                     "rmse": metrics.rmse(y_val_int, y_pred),
@@ -206,13 +231,39 @@ def selecionar_linear(
                 })
 
     df_busca = pd.DataFrame(linhas)
-    melhores = df_busca.sort_values("mase").groupby("series", as_index=False).first()
-    linear_dict = {
-        row["series"]: (
-            row["tipo"],
-            None if pd.isna(row["alpha"]) else float(row["alpha"]),
-            row["estrategia"],
-        )
+    df_modelos = df_busca[df_busca["estrategia"].isin(("direta", "recursiva"))]
+    melhores = df_modelos.sort_values("mase").groupby("series", as_index=False).first()
+    melhores_dict = {
+        row["series"]: (row["candidato"], row["estrategia"])
         for _, row in melhores.iterrows()
+    }
+    return df_busca, melhores_dict
+
+
+def selecionar_linear(
+    tabela_treino: pd.DataFrame,
+    labels: list[str],
+    alphas: tuple[float, ...] = (1.0, 5.0, 10.0, 25.0, 50.0, 100.0, 500.0),
+    n_val_interna: int = 28,
+) -> tuple[pd.DataFrame, dict[str, tuple[str, float | None, str]]]:
+    """Seleciona tipo ('padrao', 'ridge', 'lasso'), alpha e estratégia usando comparar_estrategias."""
+    candidatos = {"padrao": models.criar_modelo_linear("padrao", None)}
+    meta = {"padrao": ("padrao", None)}
+    for tipo in ("ridge", "lasso"):
+        for a in alphas:
+            chave = f"{tipo}_{float(a)}"
+            candidatos[chave] = models.criar_modelo_linear(tipo, float(a))
+            meta[chave] = (tipo, float(a))
+
+    df_busca, melhores_dict = comparar_estrategias(
+        candidatos, tabela_treino, labels, n_val_interna=n_val_interna
+    )
+    df_busca["tipo"] = df_busca["candidato"].map(lambda c: meta[c][0])
+    df_busca["alpha"] = df_busca["candidato"].map(lambda c: meta[c][1])
+    df_busca = df_busca[["series", "tipo", "alpha", "estrategia", "mae", "rmse", "mase"]]
+
+    linear_dict = {
+        serie: (meta[cand][0], meta[cand][1], estr)
+        for serie, (cand, estr) in melhores_dict.items()
     }
     return df_busca, linear_dict
