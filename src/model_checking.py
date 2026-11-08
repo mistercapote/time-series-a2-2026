@@ -1,46 +1,130 @@
+import warnings
 import pandas as pd
+import pmdarima as pm
 import src.metrics as metrics
+import src.models as models
+from sklearn.preprocessing import StandardScaler
+from statsmodels.tools.sm_exceptions import EstimationWarning
 from statsmodels.tsa.statespace.sarimax import SARIMAX
 
-def comparar_sarima(modelos: list[tuple[tuple, tuple]], train_data: pd.DataFrame, val_data: pd.DataFrame, labels: list[str]) -> pd.DataFrame:
+def comparar_sarima(
+    modelos: list[tuple[tuple, tuple]],
+    train_data: pd.DataFrame,
+    val_data: pd.DataFrame | None = None,
+    labels: list[str] | None = None,
+    maxiter: int = 200,
+) -> pd.DataFrame:
     """
-    Compara AIC, BIC e métricas de erro para modelos diferentes do SARIMA.
+    Compara AIC e BIC no conjunto de treino para ordens candidatas do SARIMA.
 
     Args:
         modelos (list[tuple[tuple, tuple]]): Lista com os parâmetros de cada modelo.
         train_data (pd.DataFrame): Dados de treino.
-        val_data (pd.DataFrame): Dados de validação.
-        labels (list[str]): Lista com os nomes das colunas.
+        val_data (pd.DataFrame | None, optional): Mantido apenas por compatibilidade.
+        labels (list[str] | None): Lista com os nomes das colunas.
+        maxiter (int, optional): Número máximo de iterações da otimização. Defaults to 200.
 
     Returns:
-        pd.DataFrame: Tabela com as métricas calculadas.
+        pd.DataFrame: Tabela com AIC e BIC calculados no treino.
     """
     resultados_grid = []
     for label in labels:
         y_tr = train_data[label]
-        y_v = val_data[label].values
-        n_v = len(y_v)
-        
+
         for order, s_order in modelos:
-            mod = SARIMAX(y_tr, order=order, seasonal_order=s_order, enforce_stationarity=False, enforce_invertibility=False)
-            fit = mod.fit(disp=False)
-            pred = fit.get_forecast(steps=n_v).predicted_mean.values
-            
-            mae_v = metrics.mae(y_v, pred)
-            rmse_v = metrics.rmse(y_v, pred)
-            mase_v = metrics.mase(y_tr, y_v, pred)
-            
+            mod = SARIMAX(y_tr, order=order, seasonal_order=s_order)
+            fit = mod.fit(disp=False, maxiter=maxiter)
+
             resultados_grid.append({
                 "Série": label,
                 "Ordem SARIMA": f"{order} x {s_order}",
                 "AIC": round(fit.aic, 1),
                 "BIC": round(fit.bic, 1),
-                "MAE Validação": round(mae_v, 2),
-                "RMSE Validação": round(rmse_v, 2),
-                "MASE Validação": round(mase_v, 4),
             })
 
     return pd.DataFrame(resultados_grid)
+
+
+def comparar_sarimax(
+    modelos: list[tuple[tuple, tuple]],
+    tabela_treino: pd.DataFrame,
+    labels: list[str],
+    maxiter: int = 500,
+) -> pd.DataFrame:
+    """Compara AIC e BIC entre ordens candidatas do SARIMAX com covariáveis em cada série."""
+    resultados_grid = []
+    for label in labels:
+        X_tr, y_tr, _, _, _ = models._obter_dados_serie(
+            label, tabela_treino=tabela_treino, tabela_validacao=tabela_treino.iloc[-28:]
+        )
+        scaler = StandardScaler()
+        X_tr_norm = pd.DataFrame(
+            scaler.fit_transform(X_tr), columns=X_tr.columns, index=X_tr.index
+        )
+        for order, s_order in modelos:
+            mod = SARIMAX(
+                y_tr,
+                exog=X_tr_norm,
+                order=order,
+                seasonal_order=s_order,
+                mle_regression=False,
+            )
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore", EstimationWarning)
+                fit = mod.fit(disp=False, maxiter=maxiter, method="powell")
+            resultados_grid.append({
+                "Série": label,
+                "Ordem SARIMAX": f"{order} x {s_order}",
+                "AIC": round(fit.aic, 1),
+                "BIC": round(fit.bic, 1),
+            })
+
+    return pd.DataFrame(resultados_grid)
+
+def grid_search_sarimax(
+    tabela_treino: pd.DataFrame,
+    labels: list[str],
+    p_values: tuple = (0,0),
+    d: int = 0,
+    q_values: tuple = (0,0),
+    P_values: tuple = (0,0),
+    D: int = 0,
+    Q_values: tuple = (0,0),
+    m: int = None
+) -> dict:
+    """Encontra as melhores ordens para o SARIMAX usando grid search"""
+    # Se colocar um valor para o periodo de sazonalidade então é sazonal
+    if m is not None:
+        seasonal = True
+
+    resultados_grid = {}
+    for label in labels:
+        X_tr, y_tr, _, _, _ = models._obter_dados_serie(
+            label, tabela_treino=tabela_treino, tabela_validacao=tabela_treino.iloc[-28:]
+        )
+        scaler = StandardScaler()
+        X_tr_norm = pd.DataFrame(
+            scaler.fit_transform(X_tr), columns=X_tr.columns, index=X_tr.index
+        )
+        modelo_auto = pm.auto_arima(
+                    y=y_tr,              
+                    exog=X_tr_norm,           
+                    start_p=p_values[0], max_p=p_values[1],     
+                    start_q=q_values[0], max_q=q_values[1],     
+                    d=d,                    
+                    seasonal=seasonal,          
+                    m=m,                    
+                    start_P=P_values[0], max_P=P_values[1],    
+                    start_Q=Q_values[0], max_Q=Q_values[1],     
+                    D=D,                    
+                    trace=True,             
+                    error_action='ignore',  
+                    suppress_warnings=True, 
+                    stepwise=True
+        )
+        resultados_grid[label] = modelo_auto
+
+    return resultados_grid
 
 def comparar_previsoes(modelos: dict, train_data: pd.DataFrame, datas_val: pd.Series, labels: list[str]) -> list[dict]:
     """
@@ -125,3 +209,107 @@ def comparar_metricas(
             })
 
     return resultados
+
+
+def comparar_estrategias(
+    candidatos: dict[str, object] | object,
+    tabela_treino: pd.DataFrame,
+    labels: list[str],
+    n_val_interna: int = 28,
+    incluir_referencias: bool = False,
+    sarima_dict: dict | None = None,
+    **kwargs,
+) -> tuple[pd.DataFrame, dict[str, tuple[str, str]]]:
+    """Compara as estratégias 'direta' e 'recursiva' para qualquer modelo na validação interna (até 2016-03-27)."""
+    if not isinstance(candidatos, dict):
+        candidatos = {candidatos.__class__.__name__.lower(): candidatos}
+
+    tab_tr_int = tabela_treino.iloc[:-n_val_interna].reset_index(drop=True)
+    tab_val_int = tabela_treino.iloc[-n_val_interna:].reset_index(drop=True)
+
+    linhas = []
+    for label in labels:
+        y_tr_int = tab_tr_int[label]
+        y_val_int = tab_val_int[label].values
+
+        if incluir_referencias:
+            refs = {
+                "media": models.mean(y_tr_int, n=n_val_interna),
+                "naive": models.naive(y_tr_int, n=n_val_interna),
+                "naive_sazonal": models.naive_sazonal(y_tr_int, m=7, n=n_val_interna),
+                "drift": models.drift(y_tr_int, n=n_val_interna),
+            }
+            if sarima_dict is not None and label in sarima_dict:
+                refs["sarima"] = models.sarima(
+                    y_tr_int,
+                    order=sarima_dict[label][0],
+                    seasonal_order=sarima_dict[label][1],
+                    n=n_val_interna,
+                )
+            for nome_ref, y_pred_ref in refs.items():
+                linhas.append({
+                    "series": label,
+                    "candidato": nome_ref,
+                    "estrategia": "referencia",
+                    "mae": metrics.mae(y_val_int, y_pred_ref),
+                    "rmse": metrics.rmse(y_val_int, y_pred_ref),
+                    "mase": metrics.mase(y_tr_int, y_val_int, y_pred_ref, m=7),
+                })
+
+        for estrategia in ("direta", "recursiva"):
+            for nome_cand, estimador in candidatos.items():
+                y_pred = models.prever_modelo(
+                    label,
+                    n=n_val_interna,
+                    tabela_treino=tab_tr_int,
+                    tabela_validacao=tab_val_int,
+                    modelo=estimador,
+                    estrategia=estrategia,
+                    **kwargs,
+                )
+                linhas.append({
+                    "series": label,
+                    "candidato": nome_cand,
+                    "estrategia": estrategia,
+                    "mae": metrics.mae(y_val_int, y_pred),
+                    "rmse": metrics.rmse(y_val_int, y_pred),
+                    "mase": metrics.mase(y_tr_int, y_val_int, y_pred, m=7),
+                })
+
+    df_busca = pd.DataFrame(linhas)
+    df_modelos = df_busca[df_busca["estrategia"].isin(("direta", "recursiva"))]
+    melhores = df_modelos.sort_values("mase").groupby("series", as_index=False).first()
+    melhores_dict = {
+        row["series"]: (row["candidato"], row["estrategia"])
+        for _, row in melhores.iterrows()
+    }
+    return df_busca, melhores_dict
+
+
+def selecionar_linear(
+    tabela_treino: pd.DataFrame,
+    labels: list[str],
+    alphas: tuple[float, ...] = (1.0, 5.0, 10.0, 25.0, 50.0, 100.0, 500.0),
+    n_val_interna: int = 28,
+) -> tuple[pd.DataFrame, dict[str, tuple[str, float | None, str]]]:
+    """Seleciona tipo ('padrao', 'ridge', 'lasso'), alpha e estratégia usando comparar_estrategias."""
+    candidatos = {"padrao": models.criar_modelo_linear("padrao", None)}
+    meta = {"padrao": ("padrao", None)}
+    for tipo in ("ridge", "lasso"):
+        for a in alphas:
+            chave = f"{tipo}_{float(a)}"
+            candidatos[chave] = models.criar_modelo_linear(tipo, float(a))
+            meta[chave] = (tipo, float(a))
+
+    df_busca, melhores_dict = comparar_estrategias(
+        candidatos, tabela_treino, labels, n_val_interna=n_val_interna
+    )
+    df_busca["tipo"] = df_busca["candidato"].map(lambda c: meta[c][0])
+    df_busca["alpha"] = df_busca["candidato"].map(lambda c: meta[c][1])
+    df_busca = df_busca[["series", "tipo", "alpha", "estrategia", "mae", "rmse", "mase"]]
+
+    linear_dict = {
+        serie: (meta[cand][0], meta[cand][1], estr)
+        for serie, (cand, estr) in melhores_dict.items()
+    }
+    return df_busca, linear_dict

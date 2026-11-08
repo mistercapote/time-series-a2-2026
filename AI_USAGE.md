@@ -49,22 +49,23 @@ O grupo responde pelas análises e pelo conteúdo entregue. Este registro descre
 ## Ajudas fornecidas pelos modelos
 
 - Auxílio na organização das covariáveis de calendário, eventos, `snap_CA` e preços semanais por categoria.
-- Auxílio na separação das entradas por série e na padronização do preço de cada série usando somente o treino.
-- Auxílio na implementação do modelo `linear` com regularização Ridge (`alpha = 10`) nas abordagens direta e recursiva.
-- Auxílio na atualização do pipeline em `run.py` e do gráfico comparativo em `src/viz.py`.
+- Auxílio na separação das entradas por série e na padronização do preço e das covariáveis usando somente o treino.
+- Auxílio na implementação das funções genéricas de previsão (`prever_recursivo`, `prever_direto` e `prever_modelo`), do modelo `linear` (comparando regressão linear padrão OLS, Ridge e Lasso com `StandardScaler` e grade de $\alpha$) e do `sarimax` (SARIMA com covariáveis).
+- Auxílio na seleção de hiperparâmetros e estratégia em janela de validação interna do treino (encerrada em `2016-03-27`), na atualização do pipeline em `run.py` e do gráfico comparativo em `src/viz.py`.
 
 ## Prompts Representativos
 
 - *"Quero criar essas covariáveis: dia da semana, semana do ano, mês e ano, junto com as outras variáveis."*
 - *"Para os nomes dos eventos e tipos, não dá para unificar o 1 com o 2 no one-hot encoding?"*
 - *"Verifique as implementações do modelo linear com covariáveis, tanto a recursiva quanto a direta, e veja se elas estão corretas e sem vazamento de dados."*
+- *"Testar o modelo linear padrão, com Lasso e com Ridge, usando o direto e o recursivo para cada série, com normalização dos dados e seleção de hiperparâmetros usando o conjunto de validação interno até 2016-03-27."*
 
 ## Erros e correções
 
 - **Desalinhamento temporal na estratégia direta:** a primeira versão pareava as covariáveis do dia de origem com o alvo futuro, mas usava as covariáveis do dia previsto na previsão. A função foi corrigida para manter o alinhamento temporal entre treino e previsão.
-- **Reajuste redundante na estratégia recursiva:** o Ridge era ajustado a cada passo. A função foi corrigida para treinar um único modelo antes do loop e realimentar a previsão anterior.
+- **Reajuste redundante na estratégia recursiva:** o estimador era ajustado a cada passo. A função foi corrigida para clonar e treinar um único modelo antes do loop e realimentar a previsão anterior (`y_anterior`).
 - **Duplo cálculo no pipeline:** `run.py` recalculava as previsões ao gerar as métricas. `comparar_metricas` foi ajustada para reutilizar as previsões já calculadas.
-- **Seleção da estratégia:** a escolha entre direta e recursiva passou a ser feita em uma janela interna do treino, preservando a validação final apenas para o reporte das métricas.
+- **Seleção de hiperparâmetros e estratégia sem vazamento:** em vez de fixar arbitrariamente um único modelo linear, a escolha entre OLS padrão, Ridge e Lasso (com padronização via `StandardScaler` ajustado no treino), bem como do parâmetro $\alpha$ e da estratégia (`direta` ou `recursiva`), passou a ser feita em uma janela temporal interna do treino (`2016-02-29` a `2016-03-27`), preservando a validação final apenas para o reporte das métricas.
 
 ## Responsabilidade
 
