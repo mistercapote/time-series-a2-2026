@@ -34,3 +34,15 @@ LINEAR_DICT = {
     "FOODS": ("lasso", 50.0, "recursiva"),
     "HOBBIES": ("ridge", 500.0, "recursiva"),
 }
+
+ARVORE_DICT = {
+    "store_total": ("arvore", 10, 5, 100, "recursiva"),
+    "FOODS": ("rf", 5, 5, 100, "recursiva"),
+    "HOBBIES": ("arvore", 10, 5, 100, "recursiva"),
+}
+
+BOOSTING_DICT = {
+    "store_total": ("gbr", 100, 0.1, 3, "recursiva"),
+    "FOODS": ("hist", 50, 0.1, 3, "recursiva"),
+    "HOBBIES": ("gbr", 100, 0.1, 3, "direta"),
+}

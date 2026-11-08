@@ -8,7 +8,8 @@ from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
 from statsmodels.tools.sm_exceptions import EstimationWarning
 from statsmodels.tsa.statespace.sarimax import SARIMAX
-
+from sklearn.tree import DecisionTreeRegressor
+from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor, HistGradientBoostingRegressor, AdaBoostRegressor
 
 def mean(serie: pd.Series, n: int = 28) -> np.ndarray:
     """
@@ -323,13 +324,135 @@ def linear(
         **kwargs,
     )
 
+def criar_modelo_arvore(
+    tipo: str = "arvore",
+    max_depth: int | None = None,
+    min_samples_leaf: int = 1,
+    n_estimators: int = 100,
+    random_state: int = 42,
+) -> object:
+    """Cria o estimador baseado em árvore ('arvore' ou 'rf')."""
+    tipo = tipo.lower()
+    if tipo == "arvore":
+        return DecisionTreeRegressor(
+            max_depth=max_depth,
+            min_samples_leaf=min_samples_leaf,
+            random_state=random_state,
+        )
+    if tipo == "rf":
+        return RandomForestRegressor(
+            n_estimators=n_estimators,
+            max_depth=max_depth,
+            min_samples_leaf=min_samples_leaf,
+            random_state=random_state,
+        )
+    raise ValueError(f"Tipo de árvore inválido: '{tipo}'. Use 'arvore' ou 'rf'.")
 
+
+def arvore(
+    serie: str | pd.Series,
+    n: int = 28,
+    tabela_treino: pd.DataFrame | None = None,
+    tabela_validacao: pd.DataFrame | None = None,
+    tipo: str = "arvore",
+    max_depth: int | None = None,
+    min_samples_leaf: int = 1,
+    n_estimators: int = 100,
+    random_state: int = 42,
+    estrategia: str = "direta",
+    **kwargs,
+) -> np.ndarray:
+    """Modelo de árvore ('arvore' ou 'rf') usando o fluxo genérico direto ou recursivo."""
+    estimador = criar_modelo_arvore(
+        tipo=tipo,
+        max_depth=max_depth,
+        min_samples_leaf=min_samples_leaf,
+        n_estimators=n_estimators,
+        random_state=random_state,
+    )
+    return prever_modelo(
+        serie=serie,
+        n=n,
+        tabela_treino=tabela_treino,
+        tabela_validacao=tabela_validacao,
+        modelo=estimador,
+        estrategia=estrategia,
+        **kwargs,
+    )
+
+
+def criar_modelo_boosting(
+    tipo: str = "gbr",
+    n_estimators: int = 100,
+    learning_rate: float = 0.1,
+    max_depth: int | None = 3,
+    random_state: int = 42,
+) -> object:
+    """Cria o estimador de boosting ('gbr', 'hist' ou 'ada')."""
+    tipo = tipo.lower()
+    if tipo == "gbr":
+        return GradientBoostingRegressor(
+            n_estimators=n_estimators,
+            learning_rate=learning_rate,
+            max_depth=max_depth if max_depth is not None else 3,
+            random_state=random_state,
+        )
+    if tipo == "hist":
+        return HistGradientBoostingRegressor(
+            max_iter=n_estimators,
+            learning_rate=learning_rate,
+            max_depth=max_depth,
+            random_state=random_state,
+        )
+    if tipo == "ada":
+        return AdaBoostRegressor(
+            n_estimators=n_estimators,
+            learning_rate=learning_rate,
+            random_state=random_state,
+        )
+    raise ValueError(f"Tipo de boosting inválido: '{tipo}'. Use 'gbr', 'hist' ou 'ada'.")
+
+
+def boosting(
+    serie: str | pd.Series,
+    n: int = 28,
+    tabela_treino: pd.DataFrame | None = None,
+    tabela_validacao: pd.DataFrame | None = None,
+    tipo: str = "gbr",
+    n_estimators: int = 100,
+    learning_rate: float = 0.1,
+    max_depth: int | None = 3,
+    random_state: int = 42,
+    estrategia: str = "direta",
+    **kwargs,
+) -> np.ndarray:
+    """Modelo de boosting ('gbr', 'hist' ou 'ada') usando o fluxo genérico direto ou recursivo."""
+    estimador = criar_modelo_boosting(
+        tipo=tipo,
+        n_estimators=n_estimators,
+        learning_rate=learning_rate,
+        max_depth=max_depth,
+        random_state=random_state,
+    )
+    return prever_modelo(
+        serie=serie,
+        n=n,
+        tabela_treino=tabela_treino,
+        tabela_validacao=tabela_validacao,
+        modelo=estimador,
+        estrategia=estrategia,
+        **kwargs,
+    )
+    
+    
 def construir_modelos(
     tabela_treino: pd.DataFrame,
     tabela_validacao: pd.DataFrame,
     sarima_dict: dict,
     linear_dict: dict[str, tuple[str, float | None, str]],
     sarimax_dict: dict | None = None,
+    arvore_dict: dict[str, tuple | dict] | None = None,
+    boosting_dict: dict[str, tuple | dict] | None = None
 ) -> dict:
     """Monta o dicionário de modelos usado na reprodução das previsões."""
     if sarimax_dict is None:
@@ -362,5 +485,27 @@ def construir_modelos(
             tipo=linear_dict[s.name][0],
             alpha=linear_dict[s.name][1],
             estrategia=linear_dict[s.name][2],
+        ),
+        "arvore": lambda s, n: arvore(
+            s,
+            n,
+            tabela_treino,
+            tabela_validacao,
+            tipo=arvore_dict[s.name][0],
+            max_depth=arvore_dict[s.name][1],
+            min_samples_leaf=arvore_dict[s.name][2],
+            n_estimators=arvore_dict[s.name][3],
+            estrategia=arvore_dict[s.name][4],
+        ),
+        "boosting": lambda s, n: boosting(
+            s,
+            n,
+            tabela_treino,
+            tabela_validacao,
+            tipo=boosting_dict[s.name][0],
+            n_estimators=boosting_dict[s.name][1],
+            learning_rate=boosting_dict[s.name][2],
+            max_depth=boosting_dict[s.name][3],
+            estrategia=boosting_dict[s.name][4],
         ),
     }

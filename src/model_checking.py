@@ -313,3 +313,99 @@ def selecionar_linear(
         for serie, (cand, estr) in melhores_dict.items()
     }
     return df_busca, linear_dict
+
+
+
+def selecionar_arvore(
+    tabela_treino: pd.DataFrame,
+    labels: list[str],
+    max_depths: tuple[int | None, ...] = (3, 5, 10, None),
+    min_samples_leafs: tuple[int, ...] = (1, 5, 10),
+    n_estimators_tuple: tuple[int, ...] = (50, 100),
+    n_val_interna: int = 28,
+) -> tuple[pd.DataFrame, dict[str, tuple[str, int | None, int, int, str]]]:
+    """Seleciona tipo ('arvore', 'rf'), hiperparâmetros e estratégia usando comparar_estrategias."""
+    candidatos = {}
+    meta = {}
+
+    for d in max_depths:
+        for leaf in min_samples_leafs:
+            # Árvore de decisão simples (n_estimators fixo em 100 apenas para manter a tupla padrão)
+            chave_dt = f"arvore_d{d}_l{leaf}"
+            candidatos[chave_dt] = models.criar_modelo_arvore(
+                tipo="arvore", max_depth=d, min_samples_leaf=leaf, n_estimators=100
+            )
+            meta[chave_dt] = ("arvore", d, int(leaf), 100)
+
+            # Random Forest
+            for n_est in n_estimators_tuple:
+                chave_rf = f"rf_d{d}_l{leaf}_n{n_est}"
+                candidatos[chave_rf] = models.criar_modelo_arvore(
+                    tipo="rf", max_depth=d, min_samples_leaf=leaf, n_estimators=int(n_est)
+                )
+                meta[chave_rf] = ("rf", d, int(leaf), int(n_est))
+
+    df_busca, melhores_dict = comparar_estrategias(
+        candidatos, tabela_treino, labels, n_val_interna=n_val_interna
+    )
+    df_busca["tipo"] = df_busca["candidato"].map(lambda c: meta[c][0])
+    df_busca["max_depth"] = df_busca["candidato"].map(lambda c: meta[c][1])
+    df_busca["min_samples_leaf"] = df_busca["candidato"].map(lambda c: meta[c][2])
+    df_busca["n_estimators"] = df_busca["candidato"].map(lambda c: meta[c][3])
+    df_busca = df_busca[
+        ["series", "tipo", "max_depth", "min_samples_leaf", "n_estimators", "estrategia", "mae", "rmse", "mase"]
+    ]
+
+    arvore_dict = {
+        serie: (meta[cand][0], meta[cand][1], meta[cand][2], meta[cand][3], estr)
+        for serie, (cand, estr) in melhores_dict.items()
+    }
+    return df_busca, arvore_dict
+
+
+def selecionar_boosting(
+    tabela_treino: pd.DataFrame,
+    labels: list[str],
+    tipos: tuple[str, ...] = ("gbr", "hist", "ada"),
+    n_estimators_tuple: tuple[int, ...] = (50, 100),
+    learning_rates: tuple[float, ...] = (0.05, 0.1),
+    max_depths: tuple[int | None, ...] = (3, 5),
+    n_val_interna: int = 28,
+) -> tuple[pd.DataFrame, dict[str, tuple[str, int, float, int | None, str]]]:
+    """Seleciona tipo ('gbr', 'hist', 'ada'), hiperparâmetros e estratégia usando comparar_estrategias."""
+    candidatos = {}
+    meta = {}
+
+    for tipo in tipos:
+        for n_est in n_estimators_tuple:
+            for lr in learning_rates:
+                if tipo == "ada":
+                    chave = f"{tipo}_n{n_est}_lr{lr}"
+                    candidatos[chave] = models.criar_modelo_boosting(
+                        tipo=tipo, n_estimators=int(n_est), learning_rate=float(lr), max_depth=None
+                    )
+                    meta[chave] = (tipo, int(n_est), float(lr), None)
+                else:
+                    for d in max_depths:
+                        chave = f"{tipo}_n{n_est}_lr{lr}_d{d}"
+                        candidatos[chave] = models.criar_modelo_boosting(
+                            tipo=tipo, n_estimators=int(n_est), learning_rate=float(lr), max_depth=d
+                        )
+                        meta[chave] = (tipo, int(n_est), float(lr), d)
+
+    df_busca, melhores_dict = comparar_estrategias(
+        candidatos, tabela_treino, labels, n_val_interna=n_val_interna
+    )
+    df_busca["tipo"] = df_busca["candidato"].map(lambda c: meta[c][0])
+    df_busca["n_estimators"] = df_busca["candidato"].map(lambda c: meta[c][1])
+    df_busca["learning_rate"] = df_busca["candidato"].map(lambda c: meta[c][2])
+    df_busca["max_depth"] = df_busca["candidato"].map(lambda c: meta[c][3])
+    df_busca = df_busca[
+        ["series", "tipo", "n_estimators", "learning_rate", "max_depth", "estrategia", "mae", "rmse", "mase"]
+    ]
+
+    boosting_dict = {
+        serie: (meta[cand][0], meta[cand][1], meta[cand][2], meta[cand][3], estr)
+        for serie, (cand, estr) in melhores_dict.items()
+    }
+    return df_busca, boosting_dict
