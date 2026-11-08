@@ -1,5 +1,6 @@
 import warnings
 import pandas as pd
+import pmdarima as pm
 import src.metrics as metrics
 import src.models as models
 from sklearn.preprocessing import StandardScaler
@@ -79,6 +80,51 @@ def comparar_sarimax(
             })
 
     return pd.DataFrame(resultados_grid)
+
+def grid_search_sarimax(
+    tabela_treino: pd.DataFrame,
+    labels: list[str],
+    p_values: tuple = (0,0),
+    d: int = 0,
+    q_values: tuple = (0,0),
+    P_values: tuple = (0,0),
+    D: int = 0,
+    Q_values: tuple = (0,0),
+    m: int = None
+) -> dict:
+    """Encontra as melhores ordens para o SARIMAX usando grid search"""
+    # Se colocar um valor para o periodo de sazonalidade então é sazonal
+    if m is not None:
+        seasonal = True
+
+    resultados_grid = {}
+    for label in labels:
+        X_tr, y_tr, _, _, _ = models._obter_dados_serie(
+            label, tabela_treino=tabela_treino, tabela_validacao=tabela_treino.iloc[-28:]
+        )
+        scaler = StandardScaler()
+        X_tr_norm = pd.DataFrame(
+            scaler.fit_transform(X_tr), columns=X_tr.columns, index=X_tr.index
+        )
+        modelo_auto = pm.auto_arima(
+                    y=y_tr,              
+                    exog=X_tr_norm,           
+                    start_p=p_values[0], max_p=p_values[1],     
+                    start_q=q_values[0], max_q=q_values[1],     
+                    d=d,                    
+                    seasonal=seasonal,          
+                    m=m,                    
+                    start_P=P_values[0], max_P=P_values[1],    
+                    start_Q=Q_values[0], max_Q=Q_values[1],     
+                    D=D,                    
+                    trace=True,             
+                    error_action='ignore',  
+                    suppress_warnings=True, 
+                    stepwise=True
+        )
+        resultados_grid[label] = modelo_auto
+
+    return resultados_grid
 
 def comparar_previsoes(modelos: dict, train_data: pd.DataFrame, datas_val: pd.Series, labels: list[str]) -> list[dict]:
     """
