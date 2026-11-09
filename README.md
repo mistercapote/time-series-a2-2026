@@ -39,4 +39,5 @@ Para rodar os testes parciais de conformidade fornecidos, execute a partir da ra
 ```bash
 python checks/check_task1.py --submission .
 python checks/check_task2.py --submission . --ate linear
+python checks/check_task2.py --submission . --ate arvore
 ```
