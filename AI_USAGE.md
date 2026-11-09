@@ -52,6 +52,8 @@ O grupo responde pelas análises e pelo conteúdo entregue. Este registro descre
 - Auxílio na separação das entradas por série e na padronização do preço e das covariáveis usando somente o treino.
 - Auxílio na implementação das funções genéricas de previsão (`prever_recursivo`, `prever_direto` e `prever_modelo`), do modelo `linear` (comparando regressão linear padrão OLS, Ridge e Lasso com `StandardScaler` e grade de $\alpha$) e do `sarimax` (SARIMA com covariáveis).
 - Auxílio na seleção de hiperparâmetros e estratégia em janela de validação interna do treino (encerrada em `2016-03-27`), na atualização do pipeline em `run.py` e do gráfico comparativo em `src/viz.py`.
+- Auxílio na implementação dos modelos Árvore e Boosting.
+- Auxílio na implementação do grid search do SARIMA.
 
 ## Prompts Representativos
 
@@ -59,6 +61,7 @@ O grupo responde pelas análises e pelo conteúdo entregue. Este registro descre
 - *"Para os nomes dos eventos e tipos, não dá para unificar o 1 com o 2 no one-hot encoding?"*
 - *"Verifique as implementações do modelo linear com covariáveis, tanto a recursiva quanto a direta, e veja se elas estão corretas e sem vazamento de dados."*
 - *"Testar o modelo linear padrão, com Lasso e com Ridge, usando o direto e o recursivo para cada série, com normalização dos dados e seleção de hiperparâmetros usando o conjunto de validação interno até 2016-03-27."*
+- *"Como identifico a ordem do modelo SARIMA com covariáveis?"*
 
 ## Erros e correções
 
