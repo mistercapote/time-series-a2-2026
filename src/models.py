@@ -444,6 +444,74 @@ def boosting(
         **kwargs,
     )
     
+def criar_modelo_rede(
+    tipo: str = "mlp",
+    neuronios: int = 64,
+    camadas: int = 2,
+    lr: float = 1e-3,
+    weight_decay: float = 0.0,
+    epocas: int = 200,
+    paciencia: int = 20,
+    seed: int = 42,
+) -> object:
+    """Cria o estimador de rede neural ('mlp')."""
+    tipo = tipo.lower()
+    
+    if tipo == "mlp":
+        import src.nets as nets
+        
+        return nets.MLPTorch(
+            neuronios=neuronios,
+            camadas=camadas,
+            lr=lr, 
+            weight_decay=weight_decay,
+            epocas=epocas,
+            paciencia=paciencia,
+            seed=seed,
+        )
+    
+    raise ValueError(f"Tipode rede inválido: '{tipo}'. Use 'mlp'.")    
+
+def rede(
+        serie: str | pd.Series,
+        n: int = 28,
+        tabela_treino: pd.DataFrame | None = None,
+        tabela_validacao: pd.DataFrame | None = None,
+        tipo : str = "mlp",
+        neuronios : int = 64,
+        camadas: int = 2,
+        lr : float = 1e-3,
+        weight_decay: float = 0.0,
+        epocas : int = 200,
+        paciencia : int = 20,
+        seed: int = 42,
+        estrategia: str = "recursiva",
+        **kwargs,
+) -> np.ndarray:
+    """Rede neural ('mlp') usando o fluxo padrão -- direto ou recursivo."""
+
+    estimador = criar_modelo_rede(
+        tipo=tipo,
+        neuronios=neuronios,
+        camadas=camadas,
+        lr=lr,
+        weight_decay=weight_decay,
+        epocas=epocas,
+        paciencia=paciencia,
+        seed=seed
+    )
+
+    return prever_modelo(
+        serie=serie,
+        n=n,
+        tabela_treino=tabela_treino,
+        tabela_validacao=tabela_validacao,
+        modelo=estimador,
+        estrategia=estrategia,
+        **kwargs,
+    )
+
+
     
 def construir_modelos(
     tabela_treino: pd.DataFrame,
@@ -452,8 +520,10 @@ def construir_modelos(
     linear_dict: dict[str, tuple[str, float | None, str]],
     sarimax_dict: dict | None = None,
     arvore_dict: dict[str, tuple | dict] | None = None,
-    boosting_dict: dict[str, tuple | dict] | None = None
+    boosting_dict: dict[str, tuple | dict] | None = None,
+    rede_dict: dict[str, tuple] | None = None
 ) -> dict:
+    
     """Monta o dicionário de modelos usado na reprodução das previsões."""
     if sarimax_dict is None:
         sarimax_dict = sarima_dict
@@ -508,4 +578,16 @@ def construir_modelos(
             max_depth=boosting_dict[s.name][3],
             estrategia=boosting_dict[s.name][4],
         ),
+        "rede": lambda s, n: rede(
+            s,
+            n,
+            tabela_treino,
+            tabela_validacao,
+            tipo=rede_dict[s.name][0],
+            neuronios=rede_dict[s.name][1],
+            camadas=rede_dict[s.name][2],
+            lr=rede_dict[s.name][3],
+            weight_decay=rede_dict[s.name][4],
+            estrategia=rede_dict[s.name][5],
+        )
     }

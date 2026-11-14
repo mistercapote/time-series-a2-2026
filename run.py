@@ -20,6 +20,7 @@ SARIMAX_DICT = config.SARIMAX_DICT
 LINEAR_DICT = config.LINEAR_DICT
 ARVORE_DICT = config.ARVORE_DICT
 BOOSTING_DICT = config.BOOSTING_DICT
+REDE_DICT = config.REDE_DICT
 
 def main():
     train_data = data.carregar_dados(caminho=str(CAMINHO_TRAIN), data_fim=DATA_FIM_TRAIN)
@@ -33,7 +34,8 @@ def main():
         LINEAR_DICT,
         SARIMAX_DICT,
         ARVORE_DICT,
-        BOOSTING_DICT
+        BOOSTING_DICT,
+        REDE_DICT
     )
 
     registros = model_checking.comparar_previsoes(modelos, train_data, val_data["date"], labels)
