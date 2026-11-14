@@ -218,6 +218,7 @@ def comparar_estrategias(
     n_val_interna: int = 28,
     incluir_referencias: bool = False,
     sarima_dict: dict | None = None,
+    estrategias: tuple[str, ...] = ("direta", "recursiva"),
     **kwargs,
 ) -> tuple[pd.DataFrame, dict[str, tuple[str, str]]]:
     """Compara as estratégias 'direta' e 'recursiva' para qualquer modelo na validação interna (até 2016-03-27)."""
@@ -256,7 +257,7 @@ def comparar_estrategias(
                     "mase": metrics.mase(y_tr_int, y_val_int, y_pred_ref, m=7),
                 })
 
-        for estrategia in ("direta", "recursiva"):
+        for estrategia in estrategias:
             for nome_cand, estimador in candidatos.items():
                 y_pred = models.prever_modelo(
                     label,
