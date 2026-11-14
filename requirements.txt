@@ -5,3 +5,4 @@ ipykernel
 statsmodels
 scikit-learn
 pmdarima
+torch
