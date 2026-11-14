@@ -410,3 +410,54 @@ def selecionar_boosting(
         for serie, (cand, estr) in melhores_dict.items()
     }
     return df_busca, boosting_dict
+
+def selecionar_rede(
+    tabela_treino: pd.DataFrame,
+    labels: list[str],
+    neuronios_tuple: tuple[int, ...] = (16, 64),
+    lrs: tuple[float, ...] = (1e-3, 1e-2),
+    weight_decays: tuple[float, ...] = (0.0, 1e-3),
+    camadas: int = 2,
+    estrategias: tuple[str, ...] = ("recursiva",),
+    n_val_interna: int = 28,
+) -> tuple[pd.DataFrame, dict[str, tuple[str, int, int, float, float, str]]]:
+    """Seleciona neurônios, lr e weight_decay da rede ('mlp') na validação interna.
+
+    Por padrão busca só na estratégia recursiva, devido ao alto custo computacional da estratégia direta.
+    """
+    
+    candidatos = {}
+    meta = {}
+    
+    for neur in neuronios_tuple:
+        for lr in lrs:
+            for wd in weight_decays:
+                
+                # Gera uma rede para cada combinação de hiperparâmetros
+                
+                chave = f"mlp_n{neur}_lr{lr}_wd{wd}"
+                candidatos[chave] = models.criar_modelo_rede(
+                    tipo="mlp", neuronios=neur, camadas=camadas, lr=lr, weight_decay=wd
+                )
+                meta[chave] = ("mlp", int(neur), int(camadas), float(lr), float(wd))
+                
+    df_busca, melhores_dict = comparar_estrategias(
+        candidatos, tabela_treino, labels, n_val_interna=n_val_interna, estrategias=estrategias
+    )
+    
+    df_busca["tipo"]         = df_busca["candidato"].map(lambda c: meta[c][0])
+    df_busca["neuronios"]    = df_busca["candidato"].map(lambda c: meta[c][1])
+    df_busca["camadas"]      = df_busca["candidato"].map(lambda c: meta[c][2])
+    df_busca["lr"]           = df_busca["candidato"].map(lambda c: meta[c][3])
+    df_busca["weight_decay"] = df_busca["candidato"].map(lambda c: meta[c][4])
+    
+    df_busca = df_busca[
+        ["series", "tipo", "neuronios", "camadas", "lr", "weight_decay", "estrategia", "mae", "rmse", "mase"]
+    ]
+
+    rede_dict = {
+        serie: (*meta[cand], estr)  # mesma ordem do REDE_DICT
+        for serie, (cand, estr) in melhores_dict.items()
+    }
+    
+    return df_busca, rede_dict
