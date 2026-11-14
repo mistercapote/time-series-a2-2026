@@ -1,4 +1,5 @@
 from sklearn.base import BaseEstimator, RegressorMixin
+import torch.nn as nn
 
 class MLPTorch(BaseEstimator, RegressorMixin):
     def __init__(self,
@@ -19,3 +20,14 @@ class MLPTorch(BaseEstimator, RegressorMixin):
         self.paciencia = paciencia
         self.n_es = n_es
         self.seed = seed
+        
+def _criar_rede(n_entradas, neuronios, camadas):
+    pecas = []
+    tamanho = n_entradas
+    for _ in range(camadas):
+        # TODO: explicar por que escolhemos ReLU, e não testamos outras ativações
+        pecas += [nn.Linear(tamanho, neuronios), nn.ReLU()]
+        tamanho = neuronios
+        
+    pecas.append(nn.Linear(tamanho, 1)) # Saída de um único valor desejado
+    return nn.Sequential(*pecas)
