@@ -132,3 +132,79 @@ def verificar_consistencia(
         print(
             "SUCESSO: Os dados estão consistentes (Do tipo correto, ordenados, com datas únicas, no intervalo correto e sem vazamentos)"
         )
+
+def verificar_padronizacao_rede(X, y) -> bool:
+    """
+    Verifica se a média e o desvio guardados pela MLPTorch vêm só dos dados passados ao fit.
+
+    Args:
+        X: Matriz de covariáveis passada ao fit
+        y: Alvo passado ao fit
+
+    Returns:
+        bool: True se mu/sd do objeto batem com os de X e y. False caso contrário.
+    """
+    
+    import numpy as np
+    import src.nets as nets
+    
+    X = np.asarray(X, dtype=np.float32)
+    y = np.asarray(y, dtype=np.float32).ravel()
+    m = nets.MLPTorch(epocas=1).fit(X, y)
+    
+    sd_x = X.std(axis=0)
+    sd_x[sd_x == 0] = 1.0
+    
+    return (
+        np.allclose(m.mu_x_, X.mean(axis=0))
+        and np.allclose(m.sd_x_, sd_x)
+        and np.isclose(m.mu_y_, y.mean())
+        and np.isclose(m.sd_y_, y.std())
+    )
+    
+def verificar_fatia_es_rede(X, y, n_es: int = 28) -> bool:
+    """
+    Verifica se a fatia de early stopping da MLPTorch é a cauda dos dados do fit.
+
+    Args:
+        X: Matriz de covariáveis passada ao fit
+        y: Alvo passado ao fit
+        n_es (int, optional): Tamanho da fatia. Padrão é 28.
+
+    Returns:
+        bool: True se a fatia são as últimas n_es linhas e o treino é o resto. False caso contrário.
+    """
+    
+    import numpy as np
+    import src.nets as nets
+    
+    X = np.asarray(X, dtype=np.float32)
+    y = np.asarray(y, dtype=np.float32).ravel()
+
+    capturado = {}
+    original = nets._treinar
+    
+    def espiao(rede, 
+               X_tr, y_tr, 
+               X_es, y_es, 
+               *args, **kwargs):
+        
+        capturado.update(X_tr=X_tr, X_es=X_es, y_es=y_es)
+        
+        return original(rede, X_tr, y_tr, X_es, y_es, *args, **kwargs)
+
+    nets._treinar = espiao
+    
+    try:
+        m = nets.MLPTorch(epocas=1, n_es=n_es).fit(X, y)
+    finally:
+        nets._treinar = original  # restaura mesmo se o fit quebrar
+
+    cauda_x = (X[-n_es:] - m.mu_x_) / m.sd_x_
+    cauda_y = (y[-n_es:] - m.mu_y_) / m.sd_y_
+    return (
+        len(capturado["X_es"]) == n_es
+        and len(capturado["X_tr"]) + n_es == len(X)
+        and np.allclose(capturado["X_es"], cauda_x)
+        and np.allclose(capturado["y_es"], cauda_y)
+    )
