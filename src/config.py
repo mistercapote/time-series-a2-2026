@@ -46,3 +46,9 @@ BOOSTING_DICT = {
     "FOODS": ("hist", 50, 0.1, 3, "recursiva"),
     "HOBBIES": ("gbr", 100, 0.1, 3, "direta"),
 }
+
+REDE_DICT = {
+    "store_total": ("mlp", 64, 2, 1e-3, 1e-4, "recursiva"),
+    "FOODS": ("mlp", 64, 2, 1e-3, 1e-4, "recursiva"),
+    "HOBBIES": ("mlp", 64, 2, 1e-3, 1e-4, "recursiva"),
+}
