@@ -4,7 +4,7 @@
 
 ---
 
-Este repositório contém a entrega da **Task 1 + Task 2** da disciplina de Séries Temporais. O projeto contempla análise exploratória e diagnóstica, implementação de quatro modelos *baseline* em horizonte de 28 dias e a geração automatizada das previsões e métricas de desempenho para três séries temporais diárias da loja Walmart (`store_total`, `FOODS` e `HOBBIES`).
+Este repositório contém a entrega da **Task 1 + Task 2** da disciplina de Séries Temporais. O projeto contempla análise exploratória e diagnóstica, implementação de quatro modelos *baseline*, SARIMA/SARIMAX, regressão linear, árvores, *boosting* e uma rede neural MLP em PyTorch, em horizonte de 28 dias; e a geração automatizada das previsões e métricas de desempenho para três séries temporais diárias da loja Walmart (`store_total`, `FOODS` e `HOBBIES`).
 
 ---
 
@@ -16,7 +16,7 @@ A partir da raiz do repositório, instale todas as dependências necessárias:
 ```bash
 python -m pip install -r requirements.txt
 ```
-
+A rede neural usa PyTorch (`torch`, já incluído no `requirements.txt`) e roda apenas em CPU; não é necessária GPU.
 
 Reprodução Automatizada das Métricas (metricas.csv)
 Para recalcular os erros e regerar o arquivo `metricas.csv`, execute:
@@ -40,4 +40,5 @@ Para rodar os testes parciais de conformidade fornecidos, execute a partir da ra
 python checks/check_task1.py --submission .
 python checks/check_task2.py --submission . --ate linear
 python checks/check_task2.py --submission . --ate arvore
+python checks/check_task2.py --submission . --ate rede
 ```
