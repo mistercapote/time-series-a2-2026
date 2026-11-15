@@ -116,6 +116,69 @@ class _RedeLSTM(nn.Module):
         return self.linear(h_n[-1])
 
 
+class _RedeGRU(nn.Module):
+    def __init__(self, n_entradas: int, neuronios: int, camadas: int = 1):
+        super().__init__()
+        self.gru = nn.GRU(
+            input_size=n_entradas,
+            hidden_size=neuronios,
+            num_layers=camadas,
+            batch_first=True,
+        )
+        self.linear = nn.Linear(neuronios, 1)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        _, h_n = self.gru(x)
+        return self.linear(h_n[-1])
+
+
+class _RedeRNN(nn.Module):
+    def __init__(self, n_entradas: int, neuronios: int, camadas: int = 1):
+        super().__init__()
+        self.rnn = nn.RNN(
+            input_size=n_entradas,
+            hidden_size=neuronios,
+            num_layers=camadas,
+            batch_first=True,
+        )
+        self.linear = nn.Linear(neuronios, 1)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        _, h_n = self.rnn(x)
+        return self.linear(h_n[-1])
+
+
+class _RedeTransformer(nn.Module):
+    def __init__(self, n_entradas: int, neuronios: int, camadas: int = 1, max_len: int = 128):
+        super().__init__()
+        nhead = 4 if neuronios % 4 == 0 else (2 if neuronios % 2 == 0 else 1)
+        self.proj = nn.Linear(n_entradas, neuronios)
+
+        pe = torch.zeros(max_len, neuronios)
+        pos = torch.arange(0, max_len, dtype=torch.float32).unsqueeze(1)
+        div = torch.exp(
+            torch.arange(0, neuronios, 2, dtype=torch.float32) * (-np.log(10000.0) / neuronios)
+        )
+        pe[:, 0::2] = torch.sin(pos * div)
+        pe[:, 1::2] = torch.cos(pos * div[: pe[:, 1::2].shape[1]])
+        self.register_buffer("pe", pe.unsqueeze(0))
+
+        layer = nn.TransformerEncoderLayer(
+            d_model=neuronios,
+            nhead=nhead,
+            dim_feedforward=neuronios * 2,
+            dropout=0.0,
+            batch_first=True,
+        )
+        self.encoder = nn.TransformerEncoder(layer, num_layers=camadas, enable_nested_tensor=False)
+        self.head = nn.Linear(neuronios, 1)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        h = self.proj(x) + self.pe[:, : x.size(1), :]
+        h = self.encoder(h)
+        return self.head(h[:, -1, :])
+
+
 class LSTMTorch(BaseEstimator, RegressorMixin):
     """Regressor baseado em nn.LSTM que lê janelas (N, L, n_features) e reutiliza _treinar."""
 
@@ -140,6 +203,9 @@ class LSTMTorch(BaseEstimator, RegressorMixin):
         self.n_es = n_es
         self.janela = janela
         self.seed = seed
+
+    def _instanciar_rede(self, n_entradas: int) -> nn.Module:
+        return _RedeLSTM(n_entradas, self.neuronios, self.camadas)
 
     def fit(self, X, y):
         torch.manual_seed(self.seed)
@@ -168,7 +234,7 @@ class LSTMTorch(BaseEstimator, RegressorMixin):
         X_tr, y_tr = Xp[: -self.n_es], yp[: -self.n_es]
         X_es, y_es = Xp[-self.n_es :], yp[-self.n_es :]
 
-        self.rede_ = _RedeLSTM(X.shape[2], self.neuronios, self.camadas)
+        self.rede_ = self._instanciar_rede(X.shape[2])
         self.epoca_escolhida_, self.historico_ = _treinar(
             self.rede_,
             X_tr,
@@ -198,6 +264,30 @@ class LSTMTorch(BaseEstimator, RegressorMixin):
             yp = self.rede_(torch.as_tensor(Xp)).numpy().ravel()
 
         return yp * self.sd_y_ + self.mu_y_
+
+
+class GRUTorch(LSTMTorch):
+    """Regressor baseado em nn.GRU sobre janelas (N, L, n_features)."""
+
+    def _instanciar_rede(self, n_entradas: int) -> nn.Module:
+        return _RedeGRU(n_entradas, self.neuronios, self.camadas)
+
+
+class RNNTorch(LSTMTorch):
+    """Regressor baseado em nn.RNN sobre janelas (N, L, n_features)."""
+
+    def _instanciar_rede(self, n_entradas: int) -> nn.Module:
+        return _RedeRNN(n_entradas, self.neuronios, self.camadas)
+
+
+class TransformerTorch(LSTMTorch):
+    """Regressor baseado em nn.TransformerEncoder sobre janelas (N, L, n_features)."""
+
+    def _instanciar_rede(self, n_entradas: int) -> nn.Module:
+        return _RedeTransformer(n_entradas, self.neuronios, self.camadas)
+
+
+SEQ_ESTIMATORS = (LSTMTorch, GRUTorch, RNNTorch, TransformerTorch)
 
 
 def _criar_rede(n_entradas, neuronios, camadas):
