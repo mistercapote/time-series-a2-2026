@@ -47,16 +47,16 @@ BOOSTING_DICT = {
     "HOBBIES": ("gbr", 100, 0.1, 3, "direta"),
 }
 
-# Configurações (tipo, neuronios, camadas, lr, weight_decay, estrategia) da rede
-# Selecionadas na validação interna (até 2016-03-27)
+# Configurações (tipo, neuronios, camadas, lr, weight_decay, janela, estrategia) da rede
+# Selecionadas entre ('mlp', 'lstm', 'gru', 'transformer') na validação interna (até 2016-03-27)
 REDE_DICT = {
-    "store_total": ("mlp", 64, 2, 1e-2, 1e-3, "direta"),
-    "FOODS": ("mlp", 16, 2, 1e-2, 1e-3, "recursiva"),
-    "HOBBIES": ("mlp", 64, 2, 1e-2, 0.0, "recursiva"),
+    "store_total": ("transformer", 64, 1, 1e-3, 0.0, 28, "recursiva"),
+    "FOODS": ("transformer", 16, 1, 1e-3, 0.0, 28, "recursiva"),
+    "HOBBIES": ("transformer", 64, 1, 1e-3, 0.0, 28, "recursiva"),
 }
 
 # Configurações (tipo, neuronios, camadas, lr, weight_decay, janela, estrategia) da LSTM
-# Selecionadas na validação interna (até 2016-03-27); mantemos "rede" (MLP) nos CSVs oficiais
+# Selecionadas isoladamente na validação interna (até 2016-03-27)
 LSTM_DICT = {
     "store_total": ("lstm", 64, 1, 1e-2, 0.0, 28, "recursiva"),
     "FOODS": ("lstm", 16, 1, 1e-2, 0.0, 14, "recursiva"),
