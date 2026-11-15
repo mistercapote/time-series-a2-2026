@@ -54,3 +54,11 @@ REDE_DICT = {
     "FOODS": ("mlp", 16, 2, 1e-2, 1e-3, "recursiva"),
     "HOBBIES": ("mlp", 64, 2, 1e-2, 0.0, "recursiva"),
 }
+
+# Configurações (tipo, neuronios, camadas, lr, weight_decay, janela, estrategia) da LSTM
+# Selecionadas na validação interna (até 2016-03-27); mantemos "rede" (MLP) nos CSVs oficiais
+LSTM_DICT = {
+    "store_total": ("lstm", 64, 1, 1e-2, 0.0, 28, "recursiva"),
+    "FOODS": ("lstm", 16, 1, 1e-2, 0.0, 14, "recursiva"),
+    "HOBBIES": ("lstm", 64, 1, 1e-2, 0.0, 14, "recursiva"),
+}
