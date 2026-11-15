@@ -374,3 +374,102 @@ def verificar_rede(
     if tudo_ok:
         print("SUCESSO: a rede não vaza dados de validação")
     return tudo_ok
+
+
+def verificar_janelas_lstm(n_obs: int = 50, n_features: int = 5, L: int = 14) -> bool:
+    """Verifica shapes e alinhamento de montar_janelas(X, y, L) sem cruzar a origem."""
+    import numpy as np
+    import src.nets as nets
+
+    rng = np.random.default_rng(0)
+    X_tr = rng.random((n_obs, n_features), dtype=np.float32)
+    y_tr = np.arange(n_obs, dtype=np.float32)
+
+    Xj, yj = nets.montar_janelas(X_tr, y_tr, L=L)
+    esperado_n = n_obs - L + 1
+
+    return (
+        Xj.shape == (esperado_n, L, n_features)
+        and yj.shape == (esperado_n,)
+        and np.allclose(Xj[0], X_tr[:L])
+        and np.allclose(Xj[-1], X_tr[-L:])
+        and np.allclose(yj, y_tr[L - 1 :])
+    )
+
+
+def verificar_lstm_recursivo_seq(
+    tabela_treino: pd.DataFrame,
+    tabela_validacao: pd.DataFrame,
+    serie: str = "HOBBIES",
+    L: int = 14,
+) -> bool:
+    """Verifica LSTMTorch e prever_recursivo_seq sem receber y da validação e na escala da série."""
+    import numpy as np
+    from sklearn.base import clone
+    import src.config as config
+    import src.models as models
+    import src.nets as nets
+
+    base = nets.LSTMTorch(neuronios=16, camadas=1, epocas=2, paciencia=2, janela=L, seed=0)
+    clonado = clone(base)
+    if clonado.get_params() != base.get_params():
+        return False
+
+    registros = []
+    fit_original = nets.LSTMTorch.fit
+
+    def espiao(self, X, y):
+        registros.append((X.shape, np.asarray(y, dtype=float).ravel()))
+        return fit_original(self, X, y)
+
+    nets.LSTMTorch.fit = espiao
+    try:
+        # Remove todas as colunas-alvo da validação para provar que y_val nunca é recebido
+        val_sem_y = tabela_validacao.drop(columns=[c for c in config.SERIES if c in tabela_validacao.columns])
+        y_pred = models.prever_recursivo_seq(
+            serie,
+            base,
+            L=L,
+            n=28,
+            tabela_treino=tabela_treino,
+            tabela_validacao=val_sem_y,
+        )
+    finally:
+        nets.LSTMTorch.fit = fit_original
+
+    y_ref = tabela_treino[serie].to_numpy(dtype=float)[L:]
+    media = float(tabela_treino[serie].mean())
+    shape_ok = (
+        len(registros) == 1
+        and registros[0][0][0] == len(y_ref)
+        and registros[0][0][1] == L
+        and np.allclose(registros[0][1], y_ref)
+    )
+    escala_ok = (
+        len(y_pred) == 28
+        and bool(np.all(np.isfinite(y_pred)))
+        and 0.1 * media < float(np.mean(y_pred)) < 10 * media
+    )
+    return shape_ok and escala_ok
+
+
+def verificar_lstm(
+    tabela_treino: pd.DataFrame,
+    tabela_validacao: pd.DataFrame,
+    serie: str = "HOBBIES",
+) -> bool:
+    """Roda as verificações de montar_janelas, LSTMTorch e prever_recursivo_seq."""
+    checagens = {
+        "montar_janelas com shape ou alinhamento incorreto": verificar_janelas_lstm,
+        "LSTMTorch ou prever_recursivo_seq falhou/vazou y_val": lambda: verificar_lstm_recursivo_seq(
+            tabela_treino, tabela_validacao, serie=serie
+        ),
+    }
+    tudo_ok = True
+    for falha, checar in checagens.items():
+        if not checar():
+            print(f"FALHA: {falha}")
+            tudo_ok = False
+    if tudo_ok:
+        print("SUCESSO: montar_janelas, LSTMTorch e prever_recursivo_seq validados sem vazamento")
+    return tudo_ok
