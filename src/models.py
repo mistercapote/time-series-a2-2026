@@ -137,10 +137,8 @@ def _obter_dados_serie(
     X_treino, y_treino = features.separar_X_y(
         serie_nome, periodo="treino", excluir=excluir, tabela=tabela_treino
     )
-    X_pred, _ = features.separar_X_y(
-        serie_nome, periodo="validacao", excluir=excluir, tabela=tabela_validacao
-    )
-    X_pred = X_pred.iloc[:n].copy()
+    colunas_pred = features.colunas_do_modelo(tabela_validacao, serie_nome, excluir=excluir)
+    X_pred = tabela_validacao[colunas_pred].iloc[:n].copy()
 
     preco_col = f"preco_{serie_nome}"
     if padronizar_preco and preco_col in X_treino.columns:
@@ -233,6 +231,62 @@ def prever_recursivo(
     return resultado * y_std + y_mean if (padronizar_y and y_std > 0) else resultado
 
 
+def prever_recursivo_seq(
+    serie: str | pd.Series,
+    modelo: object,
+    L: int | None = None,
+    n: int = 28,
+    tabela_treino: pd.DataFrame | None = None,
+    tabela_validacao: pd.DataFrame | None = None,
+    padronizar_preco: bool = True,
+    padronizar_y: bool = False,
+    excluir: list[str] | None = None,
+) -> np.ndarray:
+    """Previsão recursiva em sequência para RNN/LSTM com janelas deslizantes de tamanho L.
+
+    Treina uma única vez sobre janelas construídas exclusivamente no treino e prevê a
+    validação passo a passo: a cada dia, a janela desliza 1 dia e recebe o y_hat da
+    própria rede (nunca o y da validação).
+    """
+    import src.nets as nets
+
+    L = int(getattr(modelo, "janela", 14) if L is None else L)
+    X_tr, y_tr, X_pr, y_mean, y_std = _obter_dados_serie(
+        serie, n, tabela_treino, tabela_validacao, excluir, padronizar_preco, padronizar_y
+    )
+
+    X_tr_rec = X_tr.iloc[1:].copy()
+    X_tr_rec["y_anterior"] = y_tr.iloc[:-1].values
+    y_tr_rec = y_tr.iloc[1:].values
+
+    X_win, y_win = nets.montar_janelas(X_tr_rec, y_tr_rec, L=L)
+    estimador = clone(modelo).fit(X_win, y_win)
+
+    n_features = X_tr_rec.shape[1]
+    buffer = (
+        X_tr_rec.iloc[-(L - 1) :].to_numpy(dtype=np.float32)
+        if L > 1
+        else np.empty((0, n_features), dtype=np.float32)
+    )
+    ultimo_y = float(y_tr.iloc[-1])
+    preds = []
+
+    for step in range(len(X_pr)):
+        row = X_pr.iloc[step : step + 1].copy()
+        row["y_anterior"] = ultimo_y
+        row_arr = row.to_numpy(dtype=np.float32)
+        janela = np.vstack([buffer, row_arr])[np.newaxis, ...]
+
+        y_hat = float(np.asarray(estimador.predict(janela)).reshape(-1)[0])
+        preds.append(y_hat)
+        ultimo_y = y_hat
+        if L > 1:
+            buffer = janela[0, 1:, :]
+
+    resultado = np.asarray(preds, dtype=float)
+    return resultado * y_std + y_mean if (padronizar_y and y_std > 0) else resultado
+
+
 def prever_direto(
     serie: str | pd.Series,
     modelo: object,
@@ -279,6 +333,15 @@ def prever_modelo(
     **kwargs,
 ) -> np.ndarray:
     """Executa a previsão de qualquer modelo com covariáveis na estratégia escolhida."""
+    import src.nets as nets
+
+    if estrategia == "recursiva_seq" or (
+        estrategia == "recursiva" and isinstance(modelo, nets.LSTMTorch)
+    ):
+        L = kwargs.pop("L", getattr(modelo, "janela", 14))
+        return prever_recursivo_seq(
+            serie, modelo, L=L, n=n, tabela_treino=tabela_treino, tabela_validacao=tabela_validacao, **kwargs
+        )
     if estrategia == "recursiva":
         return prever_recursivo(
             serie, modelo, n=n, tabela_treino=tabela_treino, tabela_validacao=tabela_validacao, **kwargs
@@ -287,7 +350,7 @@ def prever_modelo(
         return prever_direto(
             serie, modelo, n=n, tabela_treino=tabela_treino, tabela_validacao=tabela_validacao, **kwargs
         )
-    raise ValueError(f"Estratégia inválida: '{estrategia}'. Use 'direta' ou 'recursiva'.")
+    raise ValueError(f"Estratégia inválida: '{estrategia}'. Use 'direta', 'recursiva' ou 'recursiva_seq'.")
 
 
 def criar_modelo_linear(tipo: str = "ridge", alpha: float | None = 10.0) -> object:
@@ -447,49 +510,65 @@ def boosting(
 def criar_modelo_rede(
     tipo: str = "mlp",
     neuronios: int = 64,
-    camadas: int = 2,
+    camadas: int | None = None,
     lr: float = 1e-3,
     weight_decay: float = 0.0,
     epocas: int = 200,
     paciencia: int = 20,
+    n_es: int = 28,
+    janela: int = 14,
     seed: int = 42,
 ) -> object:
-    """Cria o estimador de rede neural ('mlp')."""
+    """Cria o estimador de rede neural ('mlp' ou 'lstm')."""
     tipo = tipo.lower()
-    
+    import src.nets as nets
+
     if tipo == "mlp":
-        import src.nets as nets
-        
         return nets.MLPTorch(
             neuronios=neuronios,
-            camadas=camadas,
-            lr=lr, 
+            camadas=2 if camadas is None else camadas,
+            lr=lr,
             weight_decay=weight_decay,
             epocas=epocas,
             paciencia=paciencia,
+            n_es=n_es,
             seed=seed,
         )
-    
-    raise ValueError(f"Tipode rede inválido: '{tipo}'. Use 'mlp'.")    
+    if tipo == "lstm":
+        return nets.LSTMTorch(
+            neuronios=neuronios,
+            camadas=1 if camadas is None else camadas,
+            lr=lr,
+            weight_decay=weight_decay,
+            epocas=epocas,
+            paciencia=paciencia,
+            n_es=n_es,
+            janela=janela,
+            seed=seed,
+        )
+
+    raise ValueError(f"Tipo de rede inválido: '{tipo}'. Use 'mlp' ou 'lstm'.")
+
 
 def rede(
-        serie: str | pd.Series,
-        n: int = 28,
-        tabela_treino: pd.DataFrame | None = None,
-        tabela_validacao: pd.DataFrame | None = None,
-        tipo : str = "mlp",
-        neuronios : int = 64,
-        camadas: int = 2,
-        lr : float = 1e-3,
-        weight_decay: float = 0.0,
-        epocas : int = 200,
-        paciencia : int = 20,
-        seed: int = 42,
-        estrategia: str = "recursiva",
-        **kwargs,
+    serie: str | pd.Series,
+    n: int = 28,
+    tabela_treino: pd.DataFrame | None = None,
+    tabela_validacao: pd.DataFrame | None = None,
+    tipo: str = "mlp",
+    neuronios: int = 64,
+    camadas: int | None = None,
+    lr: float = 1e-3,
+    weight_decay: float = 0.0,
+    epocas: int = 200,
+    paciencia: int = 20,
+    n_es: int = 28,
+    janela: int = 14,
+    seed: int = 42,
+    estrategia: str = "recursiva",
+    **kwargs,
 ) -> np.ndarray:
-    """Rede neural ('mlp') usando o fluxo padrão -- direto ou recursivo."""
-
+    """Rede neural ('mlp' ou 'lstm') usando o fluxo padrão -- direto ou recursivo."""
     estimador = criar_modelo_rede(
         tipo=tipo,
         neuronios=neuronios,
@@ -498,8 +577,21 @@ def rede(
         weight_decay=weight_decay,
         epocas=epocas,
         paciencia=paciencia,
-        seed=seed
+        n_es=n_es,
+        janela=janela,
+        seed=seed,
     )
+
+    if tipo.lower() == "lstm" and estrategia == "recursiva":
+        return prever_recursivo_seq(
+            serie=serie,
+            modelo=estimador,
+            L=janela,
+            n=n,
+            tabela_treino=tabela_treino,
+            tabela_validacao=tabela_validacao,
+            **kwargs,
+        )
 
     return prever_modelo(
         serie=serie,
@@ -588,6 +680,7 @@ def construir_modelos(
             camadas=rede_dict[s.name][2],
             lr=rede_dict[s.name][3],
             weight_decay=rede_dict[s.name][4],
-            estrategia=rede_dict[s.name][5],
+            estrategia=rede_dict[s.name][-1],
+            janela=rede_dict[s.name][5] if len(rede_dict[s.name]) > 6 else 14,
         )
     }
