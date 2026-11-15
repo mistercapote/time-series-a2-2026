@@ -46,3 +46,11 @@ BOOSTING_DICT = {
     "FOODS": ("hist", 50, 0.1, 3, "recursiva"),
     "HOBBIES": ("gbr", 100, 0.1, 3, "direta"),
 }
+
+# Configurações (tipo, neuronios, camadas, lr, weight_decay, estrategia) da rede
+# Selecionadas na validação interna (até 2016-03-27)
+REDE_DICT = {
+    "store_total": ("mlp", 64, 2, 1e-2, 1e-3, "direta"),
+    "FOODS": ("mlp", 16, 2, 1e-2, 1e-3, "recursiva"),
+    "HOBBIES": ("mlp", 64, 2, 1e-2, 0.0, "recursiva"),
+}

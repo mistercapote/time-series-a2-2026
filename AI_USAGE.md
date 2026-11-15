@@ -30,7 +30,6 @@
 
 - Solicitação de visualização das métricas e padronização da apresentação do notebook.
 
-
 ## Erros e correções
 
 - Análise de AIC/BIC foi inicialmente interpretada de forma incorreta, sugerindo que um certo conjunto de parâmetros era o melhor, quando na verdade não era. Em seguida, a análise foi corrigida e o conjunto correto de parâmetros foi identificado.
@@ -39,12 +38,15 @@
 
 O grupo responde pelas análises e pelo conteúdo entregue. Este registro descreve o apoio recebido de ferramentas de IA generativa, mas não substitui a responsabilidade do grupo sobre o trabalho final.
 
+---
+
 # Registro de uso de IA — Task 2
 
 ## Ferramentas utilizadas
 
 - Codex (OpenAI)
 - Gemini via Antigravity
+- Claude Code (Anthropic), modelos Claude Sonnet 5.5 e Claude Opus 5.5
 
 ## Ajudas fornecidas pelos modelos
 
@@ -54,6 +56,10 @@ O grupo responde pelas análises e pelo conteúdo entregue. Este registro descre
 - Auxílio na seleção de hiperparâmetros e estratégia em janela de validação interna do treino (encerrada em `2016-03-27`), na atualização do pipeline em `run.py` e do gráfico comparativo em `src/viz.py`.
 - Auxílio na implementação dos modelos Árvore e Boosting.
 - Auxílio na implementação do grid search do SARIMA.
+- Rede neural: o Claude Code atuou como tutor, passo a passo. Ajudou na compreensão e implementação do early stopping, padronização dentro do `fit` e a API do scikit-learn (`fit`/`predict`, `clone`).
+- Claude ajudou na elaboração de Testes anti-vazamento da rede (`verificar_rede` em `src/testes.py`): sugestão da técnica de "espião" sobre `MLPTorch.fit`, que registra o que o ajuste recebe enquanto o pipeline real roda.
+- Claude ajudou na separação de tarefas, e na estruturação de issues e pull requests para organizar o processo de desenvolvimento do projeto.
+
 
 ## Prompts Representativos
 
@@ -62,6 +68,8 @@ O grupo responde pelas análises e pelo conteúdo entregue. Este registro descre
 - *"Verifique as implementações do modelo linear com covariáveis, tanto a recursiva quanto a direta, e veja se elas estão corretas e sem vazamento de dados."*
 - *"Testar o modelo linear padrão, com Lasso e com Ridge, usando o direto e o recursivo para cada série, com normalização dos dados e seleção de hiperparâmetros usando o conjunto de validação interno até 2016-03-27."*
 - *"Como identifico a ordem do modelo SARIMA com covariáveis?"*
+- *"Separe o trabalho em sub-tarefas, e redija as descrições das issues e pull requests"*
+- *"Mas o que é esse early stopping? Não entendi bem, pensei que fosse o mecanismo de encerrar o treinamento quando o gradiente do backpropagation fosse muito baixo."*
 
 ## Erros e correções
 
@@ -69,6 +77,7 @@ O grupo responde pelas análises e pelo conteúdo entregue. Este registro descre
 - **Reajuste redundante na estratégia recursiva:** o estimador era ajustado a cada passo. A função foi corrigida para clonar e treinar um único modelo antes do loop e realimentar a previsão anterior (`y_anterior`).
 - **Duplo cálculo no pipeline:** `run.py` recalculava as previsões ao gerar as métricas. `comparar_metricas` foi ajustada para reutilizar as previsões já calculadas.
 - **Seleção de hiperparâmetros e estratégia sem vazamento:** em vez de fixar arbitrariamente um único modelo linear, a escolha entre OLS padrão, Ridge e Lasso (com padronização via `StandardScaler` ajustado no treino), bem como do parâmetro $\alpha$ e da estratégia (`direta` ou `recursiva`), passou a ser feita em uma janela temporal interna do treino (`2016-02-29` a `2016-03-27`), preservando a validação final apenas para o reporte das métricas.
+- **Nome de branch inválido sugerido pela IA:**: a IA propôs branches curtas `rede/7-torch` ao lado da branch `rede`, o que o Git não aceita (`refs/heads/rede` já existe como arquivo). O grupo passou a usar `rede-<issue>-<tema>`.
 
 ## Responsabilidade
 
