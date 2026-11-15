@@ -336,7 +336,7 @@ def prever_modelo(
     import src.nets as nets
 
     if estrategia == "recursiva_seq" or (
-        estrategia == "recursiva" and isinstance(modelo, nets.LSTMTorch)
+        estrategia == "recursiva" and isinstance(modelo, nets.SEQ_ESTIMATORS)
     ):
         L = kwargs.pop("L", getattr(modelo, "janela", 14))
         return prever_recursivo_seq(
@@ -516,11 +516,12 @@ def criar_modelo_rede(
     epocas: int = 200,
     paciencia: int = 20,
     n_es: int = 28,
-    janela: int = 14,
+    janela: int | None = 14,
     seed: int = 42,
 ) -> object:
-    """Cria o estimador de rede neural ('mlp' ou 'lstm')."""
+    """Cria o estimador de rede neural ('mlp', 'lstm', 'gru', 'rnn' ou 'transformer')."""
     tipo = tipo.lower()
+    jan = 14 if janela is None else int(janela)
     import src.nets as nets
 
     if tipo == "mlp":
@@ -534,8 +535,15 @@ def criar_modelo_rede(
             n_es=n_es,
             seed=seed,
         )
-    if tipo == "lstm":
-        return nets.LSTMTorch(
+
+    seq_classes = {
+        "lstm": nets.LSTMTorch,
+        "gru": nets.GRUTorch,
+        "rnn": nets.RNNTorch,
+        "transformer": nets.TransformerTorch,
+    }
+    if tipo in seq_classes:
+        return seq_classes[tipo](
             neuronios=neuronios,
             camadas=1 if camadas is None else camadas,
             lr=lr,
@@ -543,11 +551,13 @@ def criar_modelo_rede(
             epocas=epocas,
             paciencia=paciencia,
             n_es=n_es,
-            janela=janela,
+            janela=jan,
             seed=seed,
         )
 
-    raise ValueError(f"Tipo de rede inválido: '{tipo}'. Use 'mlp' ou 'lstm'.")
+    raise ValueError(
+        f"Tipo de rede inválido: '{tipo}'. Use 'mlp', 'lstm', 'gru', 'rnn' ou 'transformer'."
+    )
 
 
 def rede(
@@ -563,12 +573,12 @@ def rede(
     epocas: int = 200,
     paciencia: int = 20,
     n_es: int = 28,
-    janela: int = 14,
+    janela: int | None = 14,
     seed: int = 42,
     estrategia: str = "recursiva",
     **kwargs,
 ) -> np.ndarray:
-    """Rede neural ('mlp' ou 'lstm') usando o fluxo padrão -- direto ou recursivo."""
+    """Rede neural ('mlp', 'lstm', 'gru', 'rnn' ou 'transformer') usando o fluxo padrão."""
     estimador = criar_modelo_rede(
         tipo=tipo,
         neuronios=neuronios,
@@ -581,17 +591,6 @@ def rede(
         janela=janela,
         seed=seed,
     )
-
-    if tipo.lower() == "lstm" and estrategia == "recursiva":
-        return prever_recursivo_seq(
-            serie=serie,
-            modelo=estimador,
-            L=janela,
-            n=n,
-            tabela_treino=tabela_treino,
-            tabela_validacao=tabela_validacao,
-            **kwargs,
-        )
 
     return prever_modelo(
         serie=serie,
@@ -680,7 +679,11 @@ def construir_modelos(
             camadas=rede_dict[s.name][2],
             lr=rede_dict[s.name][3],
             weight_decay=rede_dict[s.name][4],
+            janela=(
+                rede_dict[s.name][5]
+                if len(rede_dict[s.name]) > 6 and rede_dict[s.name][5] is not None
+                else 14
+            ),
             estrategia=rede_dict[s.name][-1],
-            janela=rede_dict[s.name][5] if len(rede_dict[s.name]) > 6 else 14,
         )
     }

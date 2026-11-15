@@ -402,15 +402,17 @@ def verificar_lstm_recursivo_seq(
     tabela_validacao: pd.DataFrame,
     serie: str = "HOBBIES",
     L: int = 14,
+    modelo_cls: type | None = None,
 ) -> bool:
-    """Verifica LSTMTorch e prever_recursivo_seq sem receber y da validação e na escala da série."""
+    """Verifica estimador sequencial (LSTM/GRU/RNN/Transformer) e prever_recursivo_seq sem y_val."""
     import numpy as np
     from sklearn.base import clone
     import src.config as config
     import src.models as models
     import src.nets as nets
 
-    base = nets.LSTMTorch(neuronios=16, camadas=1, epocas=2, paciencia=2, janela=L, seed=0)
+    cls = nets.LSTMTorch if modelo_cls is None else modelo_cls
+    base = cls(neuronios=16, camadas=1, epocas=2, paciencia=2, janela=L, seed=0)
     clonado = clone(base)
     if clonado.get_params() != base.get_params():
         return False
@@ -458,11 +460,19 @@ def verificar_lstm(
     tabela_validacao: pd.DataFrame,
     serie: str = "HOBBIES",
 ) -> bool:
-    """Roda as verificações de montar_janelas, LSTMTorch e prever_recursivo_seq."""
+    """Roda as verificações de montar_janelas, modelos sequenciais e prever_recursivo_seq."""
+    import src.nets as nets
+
     checagens = {
         "montar_janelas com shape ou alinhamento incorreto": verificar_janelas_lstm,
         "LSTMTorch ou prever_recursivo_seq falhou/vazou y_val": lambda: verificar_lstm_recursivo_seq(
-            tabela_treino, tabela_validacao, serie=serie
+            tabela_treino, tabela_validacao, serie=serie, modelo_cls=nets.LSTMTorch
+        ),
+        "GRUTorch ou prever_recursivo_seq falhou/vazou y_val": lambda: verificar_lstm_recursivo_seq(
+            tabela_treino, tabela_validacao, serie=serie, modelo_cls=nets.GRUTorch
+        ),
+        "TransformerTorch ou prever_recursivo_seq falhou/vazou y_val": lambda: verificar_lstm_recursivo_seq(
+            tabela_treino, tabela_validacao, serie=serie, modelo_cls=nets.TransformerTorch
         ),
     }
     tudo_ok = True
@@ -471,5 +481,5 @@ def verificar_lstm(
             print(f"FALHA: {falha}")
             tudo_ok = False
     if tudo_ok:
-        print("SUCESSO: montar_janelas, LSTMTorch e prever_recursivo_seq validados sem vazamento")
+        print("SUCESSO: montar_janelas, modelos sequenciais e prever_recursivo_seq validados sem vazamento")
     return tudo_ok
