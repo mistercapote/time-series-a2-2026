@@ -59,6 +59,7 @@ O grupo responde pelas análises e pelo conteúdo entregue. Este registro descre
 - Rede neural: o Claude Code atuou como tutor, passo a passo. Ajudou na compreensão e implementação do early stopping, padronização dentro do `fit` e a API do scikit-learn (`fit`/`predict`, `clone`).
 - Claude ajudou na elaboração de Testes anti-vazamento da rede (`verificar_rede` em `src/testes.py`): sugestão da técnica de "espião" sobre `MLPTorch.fit`, que registra o que o ajuste recebe enquanto o pipeline real roda.
 - Claude ajudou na separação de tarefas, e na estruturação de issues e pull requests para organizar o processo de desenvolvimento do projeto.
+- Gemini ajudou na tarefa extra de estudo de RNNs (`lstm`): apoio do assistente na implementação de `montar_janelas`, `LSTMTorch` (reaproveitando `_treinar` em `src/nets.py`), `prever_recursivo_seq` sem vazamento da validação (`src/models.py`), seleção de hiperparâmetros com janelas $L \in \{14, 28\}$  e verificações em testes
 
 
 ## Prompts Representativos
