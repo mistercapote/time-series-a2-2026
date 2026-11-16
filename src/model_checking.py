@@ -278,7 +278,7 @@ def comparar_estrategias(
                 })
 
     df_busca = pd.DataFrame(linhas)
-    df_modelos = df_busca[df_busca["estrategia"].isin(("direta", "recursiva"))]
+    df_modelos = df_busca[df_busca["estrategia"].isin(("direta", "recursiva", "recursiva_seq"))]
     melhores = df_modelos.sort_values("mase").groupby("series", as_index=False).first()
     melhores_dict = {
         row["series"]: (row["candidato"], row["estrategia"])
@@ -417,47 +417,94 @@ def selecionar_rede(
     neuronios_tuple: tuple[int, ...] = (16, 64),
     lrs: tuple[float, ...] = (1e-3, 1e-2),
     weight_decays: tuple[float, ...] = (0.0, 1e-3),
-    camadas: int = 2,
+    seq_weight_decays: tuple[float, ...] = (0.0,),
+    camadas: int | None = None,
     estrategias: tuple[str, ...] = ("recursiva",),
     n_val_interna: int = 28,
-) -> tuple[pd.DataFrame, dict[str, tuple[str, int, int, float, float, str]]]:
-    """Seleciona neurônios, lr e weight_decay da rede ('mlp') na validação interna.
+    tipo: str | None = None,
+    tipos: tuple[str, ...] = ("mlp", "lstm", "gru", "transformer"),
+    janelas: tuple[int, ...] = (14, 28),
+) -> tuple[pd.DataFrame, dict[str, tuple]]:
+    """Seleciona arquitetura ('mlp', 'lstm', 'gru', 'rnn', 'transformer') e hiperparâmetros na validação interna.
 
     Por padrão busca só na estratégia recursiva, devido ao alto custo computacional da estratégia direta.
     """
-    
+    tipos_busca = (tipo.lower(),) if tipo is not None else tuple(t.lower() for t in tipos)
     candidatos = {}
     meta = {}
-    
-    for neur in neuronios_tuple:
-        for lr in lrs:
-            for wd in weight_decays:
-                
-                # Gera uma rede para cada combinação de hiperparâmetros
-                
-                chave = f"mlp_n{neur}_lr{lr}_wd{wd}"
-                candidatos[chave] = models.criar_modelo_rede(
-                    tipo="mlp", neuronios=neur, camadas=camadas, lr=lr, weight_decay=wd
-                )
-                meta[chave] = ("mlp", int(neur), int(camadas), float(lr), float(wd))
-                
+
+    for t in tipos_busca:
+        if t == "mlp":
+            cam = 2 if camadas is None else int(camadas)
+            for neur in neuronios_tuple:
+                for lr in lrs:
+                    for wd in weight_decays:
+                        chave = f"mlp_n{neur}_lr{lr}_wd{wd}"
+                        candidatos[chave] = models.criar_modelo_rede(
+                            tipo="mlp", neuronios=neur, camadas=cam, lr=lr, weight_decay=wd
+                        )
+                        meta[chave] = ("mlp", int(neur), cam, float(lr), float(wd), None)
+        elif t in ("lstm", "gru", "rnn", "transformer"):
+            cam = 1 if camadas is None else int(camadas)
+            wds_seq = weight_decays if tipo is not None else seq_weight_decays
+            for L in janelas:
+                for neur in neuronios_tuple:
+                    for lr in lrs:
+                        for wd in wds_seq:
+                            chave = f"{t}_L{L}_n{neur}_lr{lr}_wd{wd}"
+                            candidatos[chave] = models.criar_modelo_rede(
+                                tipo=t,
+                                neuronios=neur,
+                                camadas=cam,
+                                lr=lr,
+                                weight_decay=wd,
+                                janela=int(L),
+                            )
+                            meta[chave] = (t, int(neur), cam, float(lr), float(wd), int(L))
+        else:
+            raise ValueError(
+                f"Tipo de rede inválido: '{t}'. Use 'mlp', 'lstm', 'gru', 'rnn' ou 'transformer'."
+            )
+
     df_busca, melhores_dict = comparar_estrategias(
         candidatos, tabela_treino, labels, n_val_interna=n_val_interna, estrategias=estrategias
     )
-    
-    df_busca["tipo"]         = df_busca["candidato"].map(lambda c: meta[c][0])
-    df_busca["neuronios"]    = df_busca["candidato"].map(lambda c: meta[c][1])
-    df_busca["camadas"]      = df_busca["candidato"].map(lambda c: meta[c][2])
-    df_busca["lr"]           = df_busca["candidato"].map(lambda c: meta[c][3])
-    df_busca["weight_decay"] = df_busca["candidato"].map(lambda c: meta[c][4])
-    
-    df_busca = df_busca[
-        ["series", "tipo", "neuronios", "camadas", "lr", "weight_decay", "estrategia", "mae", "rmse", "mase"]
-    ]
+
+    colunas_meta = ("tipo", "neuronios", "camadas", "lr", "weight_decay", "janela")
+    for idx, col in enumerate(colunas_meta):
+        df_busca[col] = df_busca["candidato"].map(lambda c, i=idx: meta[c][i])
+
+    colunas = ["series", *colunas_meta, "estrategia", "mae", "rmse", "mase"]
+    df_busca = df_busca[colunas]
 
     rede_dict = {
-        serie: (*meta[cand], estr)  # mesma ordem do REDE_DICT
+        serie: (*meta[cand], estr)
         for serie, (cand, estr) in melhores_dict.items()
     }
-    
+
     return df_busca, rede_dict
+
+
+def selecionar_lstm(
+    tabela_treino: pd.DataFrame,
+    labels: list[str],
+    janelas: tuple[int, ...] = (14, 28),
+    neuronios_tuple: tuple[int, ...] = (16, 32),
+    lrs: tuple[float, ...] = (1e-3, 1e-2),
+    weight_decays: tuple[float, ...] = (0.0,),
+    camadas: int = 1,
+    n_val_interna: int = 28,
+) -> tuple[pd.DataFrame, dict[str, tuple[str, int, int, float, float, int, str]]]:
+    """Seleciona janela L, estado oculto (neuronios) e lr da LSTM na validação interna."""
+    return selecionar_rede(
+        tabela_treino=tabela_treino,
+        labels=labels,
+        neuronios_tuple=neuronios_tuple,
+        lrs=lrs,
+        weight_decays=weight_decays,
+        camadas=camadas,
+        estrategias=("recursiva",),
+        n_val_interna=n_val_interna,
+        tipo="lstm",
+        janelas=janelas,
+    )

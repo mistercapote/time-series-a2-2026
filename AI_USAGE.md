@@ -56,9 +56,8 @@ O grupo responde pelas análises e pelo conteúdo entregue. Este registro descre
 - Auxílio na seleção de hiperparâmetros e estratégia em janela de validação interna do treino (encerrada em `2016-03-27`), na atualização do pipeline em `run.py` e do gráfico comparativo em `src/viz.py`.
 - Auxílio na implementação dos modelos Árvore e Boosting.
 - Auxílio na implementação do grid search do SARIMA.
-- Rede neural: o Claude Code atuou como tutor, passo a passo. Ajudou na compreensão e implementação do early stopping, padronização dentro do `fit` e a API do scikit-learn (`fit`/`predict`, `clone`).
-- Claude ajudou na elaboração de Testes anti-vazamento da rede (`verificar_rede` em `src/testes.py`): sugestão da técnica de "espião" sobre `MLPTorch.fit`, que registra o que o ajuste recebe enquanto o pipeline real roda.
-- Claude ajudou na separação de tarefas, e na estruturação de issues e pull requests para organizar o processo de desenvolvimento do projeto.
+- Claude ajudou na elaboração de Testes anti-vazamento da rede (`verificar_rede` em `src/testes.py`).
+- Gemini ajudou na expansão das arquiteturas sequenciais (`lstm`, `gru`, `rnn` e `transformer`): apoio do assistente na implementação de `montar_janelas`, `LSTMTorch`/`GRUTorch`/`RNNTorch`/`TransformerTorch` (reaproveitando `_treinar`), `prever_recursivo_seq` sem vazamento da validação, unificação de `selecionar_rede` com janelas $L \in \{14, 28\}$ para escolher a melhor variação de `rede` por série e testes.
 
 
 ## Prompts Representativos
@@ -68,8 +67,6 @@ O grupo responde pelas análises e pelo conteúdo entregue. Este registro descre
 - *"Verifique as implementações do modelo linear com covariáveis, tanto a recursiva quanto a direta, e veja se elas estão corretas e sem vazamento de dados."*
 - *"Testar o modelo linear padrão, com Lasso e com Ridge, usando o direto e o recursivo para cada série, com normalização dos dados e seleção de hiperparâmetros usando o conjunto de validação interno até 2016-03-27."*
 - *"Como identifico a ordem do modelo SARIMA com covariáveis?"*
-- *"Separe o trabalho em sub-tarefas, e redija as descrições das issues e pull requests"*
-- *"Mas o que é esse early stopping? Não entendi bem, pensei que fosse o mecanismo de encerrar o treinamento quando o gradiente do backpropagation fosse muito baixo."*
 
 ## Erros e correções
 
