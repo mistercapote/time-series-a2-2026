@@ -7,6 +7,27 @@ from sklearn.preprocessing import StandardScaler
 from statsmodels.tools.sm_exceptions import EstimationWarning
 from statsmodels.tsa.statespace.sarimax import SARIMAX
 
+import pandas as pd
+from statsmodels.tsa.stattools import kpss
+
+
+def KPSS(serie: pd.Series, alpha: float = 0.05) -> pd.DataFrame:
+    """Executa o teste KPSS (regression='c', nlags='auto') e retorna um DataFrame resumo."""
+    res = kpss(serie, regression="c", nlags="auto", result_object=True)
+    estacionaria = res.pvalue >= alpha
+
+    return pd.DataFrame(
+        [
+            {
+                "estatistica_kpss": res.statistic,
+                "p_valor": res.pvalue,
+                "alpha": alpha,
+                "nlags": res.lags,
+                "estacionaria": estacionaria
+            }
+        ]
+    )
+
 def comparar_sarima(
     modelos: list[tuple[tuple, tuple]],
     train_data: pd.DataFrame,
