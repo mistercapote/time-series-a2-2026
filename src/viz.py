@@ -43,56 +43,97 @@ def grafico_temporal(
         ax.set_title(titulo)
 
     plt.show()
-    
+
 def grafico_temporal_com_previsao(
     series_completo: pd.Series,
     datas_completo: pd.Series,
-    previsoes: pd.Series,
+    previsoes: dict[str, pd.Series],
     datas_previsao: pd.Series,
+    destaques: list[str] = None,
     titulo: str = None,
     data_inicio: str = None,
     data_fim: str = None,
     y_max: int | float = None,
 ):
     """
-    Plota o gráfico de uma coluna do dataframe ao longo do tempo, incluindo a previsão.
-    É possível definir o intervalo de tempo e altura máxima do gráfico para controlar a visualização.
-
-    Args:
-        series_completo (pd.Series): Série temporal do completo a ser plotada.
-        datas_completo (pd.Series): Séries de datas correspondentes ao completo.
-        series_validacao (pd.Series): Série temporal da validação a ser plotada.
-        datas_validacao (pd.Series): Séries de datas correspondentes à validação.
-        previsao (pd.Series): Série temporal da previsão.
-        datas_previsao (pd.Series): Séries de datas correspondentes à previsão.
-        titulo (str, optional): Título do gráfico. Defaults to None.
-        data_inicio (str, optional): Data de início da visualização. Defaults to None.
-        data_fim (str, optional): Data de fim da visualização. Defaults to None.
-        y_max (int | float, optional): Altura máxima do gráfico. Defaults to None.
+    Plota a série temporal real (em preto) junto com as previsões.
+    Séries na lista 'destaques' ganham tons de azul; as demais ficam em cinza claro.
     """
-    # FILTRO
+    if destaques is None:
+        destaques = []
 
-    datas_filtradas, serie_filtrada = filtrar_intervalo_data(series_completo, datas_completo, data_inicio, data_fim)
+    # FILTRO
+    datas_filtradas, serie_filtrada = filtrar_intervalo_data(
+        series_completo, datas_completo, data_inicio, data_fim
+    )
+
+    # Paleta simples com tons de azul bem distintos para os destaques
+    tons_azul = ["#0052cc", "#00a3ff", "#002b80", "#66c2ff"]
+    indice_azul = 0
 
     # PLOT
+    fig, ax = plt.subplots(figsize=(12, 6))
 
-    fig, ax = plt.subplots(figsize=(12, 4))
+    # Série real em preto
+    ax.plot(
+        datas_filtradas,
+        serie_filtrada,
+        label=r"$Y_t$ (Real)",
+        color="black",
+        linewidth=1.8,
+        zorder=2,
+    )
 
-    ax.plot(datas_filtradas, serie_filtrada, label=r"Y_t", color="blue")
+    # Previsões (destaques em azul por cima, secundárias em cinza ao fundo)
     for label, previsao in previsoes.items():
-        ax.plot(datas_previsao, previsao, label=f"{label}")
-    
-    # linha vertical para separar treino e validação
+        if label in destaques:
+            cor = tons_azul[indice_azul % len(tons_azul)]
+            indice_azul += 1
+            ax.plot(
+                datas_previsao,
+                previsao,
+                label=label,
+                color=cor,
+                linewidth=2.2,
+                zorder=3,
+            )
+        else:
+            ax.plot(
+                datas_previsao,
+                previsao,
+                label=label,
+                color="gray",
+                alpha=0.5,
+                linewidth=1.2,
+                zorder=1,
+            )
+
+    # Linha vertical separando treino e validação
     if len(datas_previsao) > 0:
-        ax.axvline(x=datas_previsao.iloc[0], color="gray", alpha=0.5, linestyle="--", label="Início da Validação")
+        ax.axvline(
+            x=datas_previsao.iloc[0],
+            color="gray",
+            alpha=0.6,
+            linestyle="--",
+            label="Início da Validação",
+            zorder=0,
+        )
 
     if y_max is not None:
         ax.set_ylim(0, y_max)
 
     if titulo is not None:
-        ax.set_title(titulo)
+        ax.set_title(titulo, pad=35, fontsize=13)
 
-    ax.legend(ncols=5,loc="upper center")
+    # Legenda posicionada logo acima do gráfico para não tampar os picos
+    ax.legend(
+        ncols=5,
+        loc="upper center",
+        bbox_to_anchor=(0.5, 1.12),
+        frameon=False,
+    )
+
+    plt.tight_layout()
     plt.show()
 
 
