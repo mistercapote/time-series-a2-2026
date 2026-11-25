@@ -79,6 +79,35 @@ def drift(serie: pd.Series, n: int = 28) -> np.ndarray:
     h =  np.arange(1, n + 1)
     return y_T + h * C
 
+def classificar_parametro(nome: str) -> tuple[str, str]:
+    """Identifica o componente e o símbolo grego do parâmetro no SARIMAX."""
+    if nome.startswith("ar.L"):
+        return "AR (não sazonal)", "phi"
+    if nome.startswith("ma.L"):
+        return "MA (não sazonal)", "theta"
+    if nome.startswith("ar.S."):
+        return "AR (sazonal)", "Phi"
+    if nome.startswith("ma.S."):
+        return "MA (sazonal)", "Theta"
+    return "Outros", "-"
+
+
+def extrair_parametros_sarima(result) -> pd.DataFrame:
+    """Retorna um DataFrame organizado com os parâmetros estimados do SARIMAX."""
+    rows = []
+    for nome, valor in result.params.items():
+        componente, simbolo = classificar_parametro(nome)
+        rows.append(
+            {
+                "parametro": nome,
+                "componente": componente,
+                "simbolo": simbolo,
+                "valor": float(valor),
+            }
+        )
+
+    df = pd.DataFrame(rows, columns=["parametro", "componente", "simbolo", "valor"])
+    return df.set_index("parametro")
 
 def sarima(
     serie: pd.Series,
@@ -86,6 +115,7 @@ def sarima(
     seasonal_order: tuple[int],
     n: int = 28,
     resid: bool = False,
+    return_params: bool = False,
     maxiter: int = 200,
 ) -> np.ndarray | pd.Series:
     """
@@ -97,6 +127,7 @@ def sarima(
         seasonal_order (tuple[int]): Parâmetros (P,D,Q)m
         n (int, optional): Número de períodos futuros a serem previstos. Defaults to 28.
         resid (bool, optional): Retorna os resíduos. Defaults to False.
+        return_params (bool, optional): Retorna os parâmetros. Defaults to False.
         maxiter (int, optional): Número máximo de iterações da otimização. Defaults to 200.
 
     Returns:
@@ -109,6 +140,10 @@ def sarima(
     )
 
     result = model.fit(disp=False, maxiter=maxiter)
+
+    if return_params:
+        return extrair_parametros_sarima(result)
+
     if resid:
         burn_in = result.loglikelihood_burn
         return result.resid.iloc[burn_in:]
