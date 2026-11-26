@@ -4,8 +4,50 @@ import pmdarima as pm
 import src.metrics as metrics
 import src.models as models
 from sklearn.preprocessing import StandardScaler
+from statsmodels.tsa.stattools import kpss
+from statsmodels.stats.diagnostic import acorr_ljungbox
 from statsmodels.tools.sm_exceptions import EstimationWarning
 from statsmodels.tsa.statespace.sarimax import SARIMAX
+
+def KPSS(serie: pd.Series, alpha: float = 0.05) -> pd.DataFrame:
+    """Executa o teste KPSS (regression='c', nlags='auto') e retorna um DataFrame resumo."""
+    res = kpss(serie, regression="c", nlags="auto", result_object=True)
+    estacionaria = res.pvalue >= alpha
+
+    return pd.DataFrame(
+        [
+            {
+                "estatistica_kpss": res.statistic,
+                "p_valor": res.pvalue,
+                "alpha": alpha,
+                "nlags": res.lags,
+                "estacionaria": estacionaria
+            }
+        ]
+    )
+
+def ljungbox_sarima(
+    residuos: pd.Series,
+    order: tuple[int, int, int],
+    seasonal_order: tuple[int, int, int, int],
+    alpha: float = 0.05
+) -> pd.DataFrame:
+    """Aplica Ljung-Box nos resíduos do SARIMA com lags=[7, 14, 21, 28] e model_df ajustado."""
+    p, _, q = order
+    P, _, Q, _ = seasonal_order
+    model_df = p + q + P + Q
+
+    lags = [7, 14, 21, 28]
+
+    df = acorr_ljungbox(
+        residuos,
+        lags=lags,
+        model_df=model_df,
+        return_df=True,
+    )
+    df["alpha"] = alpha
+    df["sem_autocorrelacao"] = df["lb_pvalue"] >= alpha
+    return df
 
 def comparar_sarima(
     modelos: list[tuple[tuple, tuple]],
